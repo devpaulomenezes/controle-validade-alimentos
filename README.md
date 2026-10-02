@@ -9,6 +9,7 @@ cadastro com foto, alerta de itens "vencendo esta semana" e notificações locai
 ## Decisões do projeto (fonte de verdade)
 
 - **Plataforma:** Android · **Stack:** React Native (JSX) com Expo, testado no Expo Go
+- **Navegação:** React Navigation (template blank — expo-router descartado)
 - **Escopo da Etapa 1:** CRUD completo com persistência local em JSON (expo-file-system)
 - **Escopo da Etapa 2:** persistência em banco REMOTO via API (mesma interface do repositório)
 - **Identificação do produto:** foto do alimento/rótulo pela câmera. Sem código de barras e sem
@@ -61,6 +62,11 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
 corrigido/adaptado para permanecer coerente com o contexto e o andamento do projeto.
 Manter o README atualizado integra os critérios de aceite de cada issue no GitHub.
 
+## Licença
+
+Distribuído sob a **Licença MIT** — ver o arquivo `LICENSE`.
+Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
+
 ## Como executar
 
     npm install
@@ -72,3 +78,5 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 
 - 2026-10-01 — Repositório inicializado; scaffold do Expo (template blank) mesclado ao `main`;
   `.gitignore` unificado; fluxo de branches `dev` → `main` definido.
+- 2026-10-01 — Licença do template do Expo substituída por MIT própria do grupo; README
+  consolidado com navegação via React Navigation.
