@@ -35,7 +35,26 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
   Regras de vencimento (dias restantes; vencido / esta semana / este mês / ok) centralizadas
   no ServicoValidade.
 
-## Estrutura de pastas (planejada)
+## Contrato de dados (acordado na issue #1)
+
+O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente, usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`) será feita na issue #3.
+
+**Modelo `Produto`:**
+- `id`: Identificador único do produto.
+- `nome`: Nome do produto.
+- `quantidade`: Quantidade em estoque.
+- `dataDeValidade`: Data de validade em formato ISO 8601 (YYYY-MM-DD), armazenada como string.
+- `fotoUri`: URI local da foto do produto/rótulo.
+- `dataDeCadastro`: Data de cadastro em formato ISO 8601, armazenada como string.
+
+**Interface `ProdutoRepository`:**
+- `listar()`: Lista todos os produtos cadastrados.
+- `salvar(produto)`: Salva um novo produto.
+- `atualizar(produto)`: Atualiza um produto existente.
+- `remover(id)`: Remove um produto pelo seu ID.
+- `buscarPorId(id)`: Retorna um produto específico pelo ID.
+
+## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation)
     components/    → componentes reutilizáveis
@@ -80,3 +99,4 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
   `.gitignore` unificado; fluxo de branches `dev` → `main` definido.
 - 2026-10-01 — Licença do template do Expo substituída por MIT própria do grupo; README
   consolidado com navegação via React Navigation.
+- 2026-10-02 — Issue #1 concluída: estrutura de pastas (app, components, services, data) criada; contrato de dados definido (Produto + ProdutoRepository), base para os blocos independentes da Etapa 1.
