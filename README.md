@@ -39,9 +39,9 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
 
     app/           → telas (navegação via React Navigation)
     components/    → componentes reutilizáveis
-    services/      → ServicoValidade, NotificacoesService, CameraService
+    services/      → ServicoValidade, ServicoDashboard, NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (Etapa 1)
-
+    
 ## Fluxo de trabalho Git (regra do grupo)
 
 - Desenvolvimento exclusivamente na branch **`dev`**
@@ -50,11 +50,17 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
 - Mensagens de commit no padrão **Conventional Commits** (`feat:`, `fix:`, `chore:`, `docs:`)
 - Commits finais feitos pelo grupo, após revisão das alterações
 
-## Divisão de responsabilidades (Etapa 1)
+## Divisão de responsabilidades — Etapa 1
 
-- **Paulo Moura** — dados e regras: ProdutoRepository (JSON), ServicoValidade, NotificacoesService
-- **Arthur Alexandre** — interface: telas, navegação, cartões de produto, dashboard "vencendo esta semana"
-- **João Victor Lucena** — recursos do dispositivo: CameraService, foto no cadastro, testes de integração
+Cada integrante é responsável por 4 issues, desenvolvidas de forma independente
+contra o contrato de dados definido na issue #1 (modelo `Produto` e interface
+`ProdutoRepository`), usando mocks onde a integração só ocorre no fim do bloco.
+
+| Integrante | Bloco | Issues | Responsabilidades |
+|---|---|---|---|
+| Paulo Moura | Dados e regras | #3–#6 | `JsonProdutoRepository` (CRUD em JSON), `ServicoValidade` (regras de vencimento), `ServicoDashboard` (agregações), testes unitários |
+| Arthur Alexandre | Interface | #7–#10 | Tema visual e componentes reutilizáveis, tela de cadastro (formulário + date picker), tela de listagem (busca e filtro), dashboard "vencendo esta semana" e troca do mock pelo repositório real |
+| João Victor Lucena | Recursos do dispositivo | #11–#14 | `CameraService` (foto/galeria com permissões), `NotificacoesService` (alertas locais 3 dias antes do vencimento), integração da foto no fluxo do app, testes de integração e validação final |
 
 ## Regra de manutenção deste README
 
@@ -80,3 +86,6 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
   `.gitignore` unificado; fluxo de branches `dev` → `main` definido.
 - 2026-10-01 — Licença do template do Expo substituída por MIT própria do grupo; README
   consolidado com navegação via React Navigation.
+- 2026-10-02 — Plano da Etapa 1 concluído: 14 issues criadas no GitHub (2 de
+  fundação + 4 por integrante, blocos independentes contra o contrato da #1);
+  `NotificacoesService` movida para o bloco do João;   labels `setup`, `feat` e `docs` configuradas.
