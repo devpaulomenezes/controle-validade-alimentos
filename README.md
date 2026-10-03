@@ -9,7 +9,7 @@ cadastro com foto, alerta de itens "vencendo esta semana" e notificações locai
 ## Decisões do projeto (fonte de verdade)
 
 - **Plataforma:** Android · **Stack:** React Native (JSX) com Expo, testado no Expo Go
-- **Navegação:** React Navigation (template blank — expo-router descartado)
+- **Navegação:** React Navigation configurado (native stack, rotas: Inicial e Cadastro). Template blank, expo-router descartado.
 - **Escopo da Etapa 1:** CRUD completo com persistência local em JSON (expo-file-system)
 - **Escopo da Etapa 2:** persistência em banco REMOTO via API (mesma interface do repositório)
 - **Identificação do produto:** foto do alimento/rótulo pela câmera. Sem código de barras e sem
@@ -56,7 +56,7 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 
 ## Estrutura de pastas (implementada na issue #1)
 
-    app/           → telas (navegação via React Navigation)
+    app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
     components/    → componentes reutilizáveis
     services/      → ServicoValidade, NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (Etapa 1)
@@ -100,3 +100,4 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 - 2026-10-01 — Licença do template do Expo substituída por MIT própria do grupo; README
   consolidado com navegação via React Navigation.
 - 2026-10-02 — Issue #1 concluída: estrutura de pastas (app, components, services, data) criada; contrato de dados definido (Produto + ProdutoRepository), base para os blocos independentes da Etapa 1.
+- 2026-10-02 — Issue #2 concluída: React Navigation configurado (NavigationContainer + native stack); telas TelaInicial e TelaCadastro criadas em app/; navegação Inicial → Cadastro → Voltar funcional.
