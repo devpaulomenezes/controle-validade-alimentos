@@ -9,7 +9,7 @@ cadastro com foto, alerta de itens "vencendo esta semana" e notificações locai
 ## Decisões do projeto (fonte de verdade)
 
 - **Plataforma:** Android · **Stack:** React Native (JSX) com Expo, testado no Expo Go
-- **Navegação:** React Navigation (template blank — expo-router descartado)
+- **Navegação:** React Navigation configurado (native stack, rotas: Inicial e Cadastro). Template blank, expo-router descartado.
 - **Escopo da Etapa 1:** CRUD completo com persistência local em JSON (expo-file-system)
 - **Escopo da Etapa 2:** persistência em banco REMOTO via API (mesma interface do repositório)
 - **Identificação do produto:** foto do alimento/rótulo pela câmera. Sem código de barras e sem
@@ -35,9 +35,28 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
   Regras de vencimento (dias restantes; vencido / esta semana / este mês / ok) centralizadas
   no ServicoValidade.
 
-## Estrutura de pastas (planejada)
+## Contrato de dados (acordado na issue #1)
 
-    app/           → telas (navegação via React Navigation)
+O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente, usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`) será feita na issue #3.
+
+**Modelo `Produto`:**
+- `id`: Identificador único do produto.
+- `nome`: Nome do produto.
+- `quantidade`: Quantidade em estoque.
+- `dataDeValidade`: Data de validade em formato ISO 8601 (YYYY-MM-DD), armazenada como string.
+- `fotoUri`: URI local da foto do produto/rótulo.
+- `dataDeCadastro`: Data de cadastro em formato ISO 8601, armazenada como string.
+
+**Interface `ProdutoRepository`:**
+- `listar()`: Lista todos os produtos cadastrados.
+- `salvar(produto)`: Salva um novo produto.
+- `atualizar(produto)`: Atualiza um produto existente.
+- `remover(id)`: Remove um produto pelo seu ID.
+- `buscarPorId(id)`: Retorna um produto específico pelo ID.
+
+## Estrutura de pastas (implementada na issue #1)
+
+    app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
     components/    → componentes reutilizáveis
     services/      → ServicoValidade, ServicoDashboard, NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (Etapa 1)
@@ -75,7 +94,7 @@ Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
 
 ## Como executar
 
-    npm install
+    npm install\
     npx expo start
 
 Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
@@ -89,3 +108,5 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 - 2026-10-02 — Plano da Etapa 1 concluído: 14 issues criadas no GitHub (2 de
   fundação + 4 por integrante, blocos independentes contra o contrato da #1);
   `NotificacoesService` movida para o bloco do João;   labels `setup`, `feat` e `docs` configuradas.
+- 2026-10-02 — Issue #1 concluída: estrutura de pastas (app, components, services, data) criada; contrato de dados definido (Produto + ProdutoRepository), base para os blocos independentes da Etapa 1.
+- 2026-10-02 — Issue #2 concluída: React Navigation configurado (NavigationContainer + native stack); telas TelaInicial e TelaCadastro criadas em app/; navegação Inicial → Cadastro → Voltar funcional.
