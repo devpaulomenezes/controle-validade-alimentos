@@ -1,5 +1,4 @@
 Telas do aplicativo (navegação via React Navigation).
 
-- `TelaInicial.js` — tela inicial (listagem de produtos).
+- `TelaInicial.js` — listagem de produtos com busca por nome e filtro por situação.
 - `TelaCadastro.js` — formulário de cadastro com date picker.
-- `TelaTesteComponentes.js` — tela de teste TEMPORÁRIA dos componentes (issue #7).

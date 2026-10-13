@@ -72,8 +72,8 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   quantidade, validade (DD/MM/AAAA), foto quando houver e o selo colorido da situação.
   **Não calcula datas** — só exibe o que recebe.
 - **`EmptyState`**: estado de lista vazia com ícone, mensagem e botão de ação opcional.
-- **Tela de teste temporária** (`TelaTesteComponentes`): acessível pelo link "Ver componentes
-  (teste)" na tela inicial; mostra um cartão em cada situação e o EmptyState.
+- **Tela de teste temporária** (`TelaTesteComponentes`): usada na #7 para validar um cartão em
+  cada situação e o EmptyState; removida na #9, quando a listagem real passou a usar os componentes.
 
 ## Interface: tela de cadastro (issue #8)
 
@@ -88,6 +88,22 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   grava no **mock em memória** (`mocks/MockProdutoRepository`, que segue a interface
   `ProdutoRepository`), mostra "Produto salvo" e volta à tela inicial. O produto salvo
   aparece no console do Metro. A persistência real entra na issue #10.
+
+## Interface: tela de listagem (issue #9)
+
+- A tela inicial lista os produtos com o `ProdutoCard`, **ordenados pela validade mais próxima**,
+  e recarrega ao ganhar foco (o produto recém-cadastrado aparece ao voltar do cadastro).
+- **Busca local** por nome enquanto o usuário digita, sem diferenciar maiúsculas e acentos
+  ("lei" encontra "Leite"; "feijao" encontra "Feijão").
+- **Filtro por situação**: Todas / Vencidos / Vencem esta semana / Vencem este mês / Ok.
+- **EmptyState** quando não há produtos (com botão para cadastrar) e quando a busca ou o filtro
+  não encontram nada. Botão "+ Novo" no cabeçalho para abrir o cadastro.
+- A tela **não calcula datas**: a situação e a ordenação vêm de `mocks/servicosMock.js`, que tem
+  as mesmas assinaturas do `ServicoValidade.classificarSituacao` (#4) e do
+  `ServicoDashboard.ordenarPorValidade` (#5). Na #10 basta trocar os imports pelos serviços reais.
+- **Dados mock:** `mocks/produtosMock.js` traz 9 produtos com validades relativas a hoje (todas as
+  situações e vários "Leite ..." para a busca). Para ver o EmptyState, troque
+  `SEMEAR_DADOS_MOCK` para `false` em `mocks/MockProdutoRepository.js`.
 
 ## Fluxo de trabalho Git (regra do grupo)
 
@@ -144,3 +160,7 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 - 2026-10-13 — Issue #8 concluída: tela de cadastro com formulário validado e date picker
   (`@react-native-community/datetimepicker`), salvando em repositório mock em memória
   (`mocks/`), que segue o contrato da #1.
+- 2026-10-13 — Issue #9 concluída: tela inicial transformada na listagem com `ProdutoCard`,
+  ordenação por validade, busca local por nome, filtro por situação e EmptyState; situação e
+  ordenação vindas de serviços mock com as assinaturas das issues #4 e #5; tela de teste da #7
+  removida.

@@ -5,6 +5,10 @@
  * na issue #10. Os dados se perdem ao recarregar o app.
  */
 import ProdutoRepository from '../data/ProdutoRepository';
+import { criarProdutosMock } from './produtosMock';
+
+// true = começa com os produtos de exemplo; false = começa vazio (para ver o EmptyState).
+const SEMEAR_DADOS_MOCK = true;
 
 /** Gera um id único simples, suficiente para os dados mock. */
 export function gerarIdMock() {
@@ -14,7 +18,7 @@ export function gerarIdMock() {
 class MockProdutoRepository extends ProdutoRepository {
   constructor() {
     super();
-    this.produtos = [];
+    this.produtos = SEMEAR_DADOS_MOCK ? criarProdutosMock() : [];
   }
 
   async listar() {
