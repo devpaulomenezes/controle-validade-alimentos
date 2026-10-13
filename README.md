@@ -60,6 +60,7 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
     components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, formatoData.js)
     services/      → ServicoValidade, ServicoDashboard, NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (Etapa 1)
+    mocks/         → mocks TEMPORÁRIOS do bloco de interface (removidos na issue #10)
 
 ## Interface: tema e componentes (issue #7)
 
@@ -73,6 +74,20 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 - **`EmptyState`**: estado de lista vazia com ícone, mensagem e botão de ação opcional.
 - **Tela de teste temporária** (`TelaTesteComponentes`): acessível pelo link "Ver componentes
   (teste)" na tela inicial; mostra um cartão em cada situação e o EmptyState.
+
+## Interface: tela de cadastro (issue #8)
+
+- Formulário com **nome**, **quantidade** e **data de validade**, e botão "Salvar".
+- **Date picker:** `@react-native-community/datetimepicker` (incluído no Expo Go; instalado com
+  `npx expo install`). No Android usa a API imperativa `DateTimePickerAndroid.open`, recomendada
+  pela biblioteca. A data é gravada no formato do contrato (`'YYYY-MM-DD'`) a partir da data
+  **local** — sem `toISOString()`, que converte para UTC e pode adiantar um dia à noite.
+- **Validação** (mensagens em português): nome obrigatório, quantidade inteira maior que zero e
+  data obrigatória. Datas passadas são aceitas (o produto pode já estar vencido).
+- Ao salvar, cria um `Produto` do contrato (id e `dataDeCadastro` gerados localmente),
+  grava no **mock em memória** (`mocks/MockProdutoRepository`, que segue a interface
+  `ProdutoRepository`), mostra "Produto salvo" e volta à tela inicial. O produto salvo
+  aparece no console do Metro. A persistência real entra na issue #10.
 
 ## Fluxo de trabalho Git (regra do grupo)
 
@@ -126,3 +141,6 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 - 2026-10-13 — Issue #7 concluída: tema visual central (`components/theme.js`) e componentes
   reutilizáveis `ProdutoCard` e `EmptyState`, validados na tela de teste temporária com produtos mock
   nas 4 situações; cabeçalho da navegação usando as cores do tema.
+- 2026-10-13 — Issue #8 concluída: tela de cadastro com formulário validado e date picker
+  (`@react-native-community/datetimepicker`), salvando em repositório mock em memória
+  (`mocks/`), que segue o contrato da #1.
