@@ -14,6 +14,11 @@ export default function TelaInicial({ navigation }) {
       >
         <Text style={styles.buttonText}>+ Adicionar produto</Text>
       </TouchableOpacity>
+
+      {/* Acesso temporário à tela de teste da issue #7 (removido na #9). */}
+      <TouchableOpacity onPress={() => navigation.navigate('TesteComponentes')}>
+        <Text style={styles.linkTeste}>Ver componentes (teste)</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -48,5 +53,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  linkTeste: {
+    marginTop: 20,
+    color: '#007bff',
+    textDecorationLine: 'underline',
   },
 });

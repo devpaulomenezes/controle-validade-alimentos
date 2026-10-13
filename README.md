@@ -57,10 +57,23 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 ## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
-    components/    → componentes reutilizáveis
+    components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, formatoData.js)
     services/      → ServicoValidade, ServicoDashboard, NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (Etapa 1)
-    
+
+## Interface: tema e componentes (issue #7)
+
+- **Tema central** (`components/theme.js`): paleta de cores, espaçamentos, raios, tamanhos de
+  fonte e estilos base (`estilosBase`). Telas e componentes importam daqui — nada de cores soltas.
+- **Cores das situações** (chaves iguais às do `ServicoValidade.classificarSituacao`, issue #4):
+  vermelho = `vencido`, amarelo = `venceEstaSemana`, azul = `venceEsteMes`, verde = `ok`.
+- **`ProdutoCard`**: recebe `produto` (contrato da #1) e `situacao` (já classificada) e exibe nome,
+  quantidade, validade (DD/MM/AAAA), foto quando houver e o selo colorido da situação.
+  **Não calcula datas** — só exibe o que recebe.
+- **`EmptyState`**: estado de lista vazia com ícone, mensagem e botão de ação opcional.
+- **Tela de teste temporária** (`TelaTesteComponentes`): acessível pelo link "Ver componentes
+  (teste)" na tela inicial; mostra um cartão em cada situação e o EmptyState.
+
 ## Fluxo de trabalho Git (regra do grupo)
 
 - Desenvolvimento exclusivamente na branch **`dev`**
@@ -110,3 +123,6 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
   `NotificacoesService` movida para o bloco do João;   labels `setup`, `feat` e `docs` configuradas.
 - 2026-10-02 — Issue #1 concluída: estrutura de pastas (app, components, services, data) criada; contrato de dados definido (Produto + ProdutoRepository), base para os blocos independentes da Etapa 1.
 - 2026-10-02 — Issue #2 concluída: React Navigation configurado (NavigationContainer + native stack); telas TelaInicial e TelaCadastro criadas em app/; navegação Inicial → Cadastro → Voltar funcional.
+- 2026-10-13 — Issue #7 concluída: tema visual central (`components/theme.js`) e componentes
+  reutilizáveis `ProdutoCard` e `EmptyState`, validados na tela de teste temporária com produtos mock
+  nas 4 situações; cabeçalho da navegação usando as cores do tema.
