@@ -8,6 +8,7 @@ import {
   FlatList,
   ActivityIndicator,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ProdutoCard from '../components/ProdutoCard';
@@ -40,9 +41,27 @@ export default function TelaInicial({ navigation }) {
   const [filtro, setFiltro] = useState('todas');
 
   const abrirCadastro = useCallback(() => navigation.navigate('Cadastro'), [navigation]);
+  const abrirMenuTestes = useCallback(() => {
+    Alert.alert('Recursos do Dispositivo', 'Selecione a tela de teste desejada:', [
+      { text: 'Câmera (Issue #11)', onPress: () => navigation.navigate('TesteCamera') },
+      { text: 'Notificações (Issue #12)', onPress: () => navigation.navigate('TesteNotificacoes') },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  }, [navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={abrirMenuTestes}
+          accessibilityRole="button"
+          accessibilityLabel="Menu de testes"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.areaBotaoCabecalho}
+        >
+          <Text style={styles.botaoCabecalho}>Testes</Text>
+        </TouchableOpacity>
+      ),
       headerRight: () => (
         <TouchableOpacity
           onPress={abrirCadastro}
@@ -55,7 +74,7 @@ export default function TelaInicial({ navigation }) {
         </TouchableOpacity>
       ),
     });
-  }, [navigation, abrirCadastro]);
+  }, [navigation, abrirCadastro, abrirMenuTestes]);
 
   // Recarrega sempre que a tela ganha foco (ex.: ao voltar do cadastro).
   useFocusEffect(

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { cores, situacoes, espacamento, raio, fonte } from './theme';
 import { formatarDataBR } from './formatoData';
@@ -14,14 +14,23 @@ import { formatarDataBR } from './formatoData';
  * @param {'vencido'|'venceEstaSemana'|'venceEsteMes'|'ok'} props.situacao - Situação já classificada.
  */
 export default function ProdutoCard({ produto, situacao }) {
+  const [erroImagem, setErroImagem] = useState(false);
   const estiloSituacao = situacoes[situacao];
   const corDestaque = estiloSituacao ? estiloSituacao.cor : cores.borda;
+  const temFoto = Boolean(produto.fotoUri) && !erroImagem;
 
   return (
     <View style={[styles.card, { borderLeftColor: corDestaque }]}>
-      {produto.fotoUri ? (
-        <Image source={{ uri: produto.fotoUri }} style={styles.foto} />
-      ) : null}
+      {temFoto ? (
+        <Image
+          source={{ uri: produto.fotoUri }}
+          style={styles.foto}
+          onError={() => setErroImagem(true)}
+        />
+      ) : (
+        <View style={[styles.foto, styles.placeholder]}>
+        </View>
+      )}
 
       <View style={styles.info}>
         <Text style={styles.nome} numberOfLines={1}>{produto.nome}</Text>
@@ -60,6 +69,12 @@ const styles = StyleSheet.create({
     borderRadius: raio.sm,
     marginRight: espacamento.md,
     backgroundColor: cores.fundo,
+  },
+  placeholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: cores.borda,
   },
   info: {
     flex: 1,

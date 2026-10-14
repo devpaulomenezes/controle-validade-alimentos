@@ -105,6 +105,45 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   situações e vários "Leite ..." para a busca). Para ver o EmptyState, troque
   `SEMEAR_DADOS_MOCK` para `false` em `mocks/MockProdutoRepository.js`.
 
+## Recursos do dispositivo: câmera e galeria (issue #11)
+
+- **`CameraService` (`services/CameraService.js`)**:
+  - Métodos estáticos `tirarFoto()` (abre a câmera) e `escolherDaGaleria()` (abre a galeria).
+  - Trata permissões nos três estados: concedida, negada (mensagem clara ao usuário) e negada permanentemente (direcionamento às configurações do sistema via `Linking.openSettings()`).
+  - Captura com qualidade comprimida (`quality: 0.6`, `allowsEditing: false`, `mediaTypes: ['images']`), sem guardar imagem original desnecessariamente pesada.
+  - Cancelamento gracioso: fechar câmera ou galeria retorna `null` sem quebrar o fluxo nem gerar erro.
+  - Retorna string com a URI local da imagem, atendendo ao campo `fotoUri` do contrato `Produto` (#1).
+- **Tela de teste temporária (`TelaTesteCamera.js`)**:
+  - Validação isolada com botões "Tirar foto" e "Escolher da galeria".
+  - Exibe a imagem capturada e a URI retornada, com botão para limpar.
+  - Acessível pelo menu "🧪 Testes" no cabeçalho da `TelaInicial`.
+
+## Recursos do dispositivo: notificações locais (issue #12)
+
+- **`NotificacoesService` (`services/NotificacoesService.js`)**:
+  - Serviço puro que recebe o `Produto` como parâmetro (sem acoplamento com repositório).
+  - Alertas locais configurados com `expo-notifications`, canal Android com prioridade alta e handler para exibição com app em primeiro plano.
+  - Regra de antecedência de 3 dias: produtos vencendo em até 3 dias (ou já vencidos) disparam notificação imediata (em 2s); produtos com folga maior são agendados para 3 dias antes da validade, às 09:00.
+  - Mensagens em português adaptadas ("venceu há X dias!", "vence hoje!", "vence amanhã!", "vence em X dias!").
+  - Trata permissões com aviso claro e link para as configurações do sistema (`Linking.openSettings()`).
+  - Funções auxiliares `listarAgendadas()` e `cancelarTodas()`.
+- **Tela de teste temporária (`TelaTesteNotificacoes.js`)**:
+  - Botões para agendar 3 cenários de teste: "Vence amanhã" (alerta imediato), "Já vencido" (alerta imediato) e "Com folga" (agenda para o futuro).
+  - Listagem dos agendamentos ativos no sistema com opção de cancelamento em massa.
+  - Acessível pelo menu "🧪 Testes" no cabeçalho da `TelaInicial`.
+
+## Recursos do dispositivo: integração da foto no fluxo do app (issue #13)
+
+- **Persistência de imagens (`CameraService.persistirFoto`)**:
+  - Salva as fotos temporárias da câmera e da galeria na pasta permanente de documentos do aplicativo (`FileSystem.documentDirectory/fotos/`), impedindo perda de dados quando o sistema operacional limpa o cache do aparelho.
+- **Tela de cadastro (`TelaCadastro.js`)**:
+  - Botão "📷 Adicionar foto" integrado ao formulário, permitindo escolher entre capturar pela câmera ou escolher da galeria via `CameraService`.
+  - Exibição da pré-visualização da imagem com opção de alterar ou remover foto.
+  - Gravação do produto com a URI persistente no campo `fotoUri` ou `null` quando salvo sem foto.
+- **Cartão do produto (`ProdutoCard.js`)**:
+  - Exibe a foto persistida do produto quando `fotoUri` estiver definido.
+  - Exibe placeholder estilizado com ícone `🥫` quando o produto for cadastrado sem foto ou em caso de falha no carregamento (`onError`).
+
 ## Fluxo de trabalho Git (regra do grupo)
 
 - Desenvolvimento exclusivamente na branch **`dev`**
@@ -164,3 +203,6 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
   ordenação por validade, busca local por nome, filtro por situação e EmptyState; situação e
   ordenação vindas de serviços mock com as assinaturas das issues #4 e #5; tela de teste da #7
   removida.
+- 2026-10-14 — Issue #11 concluída: `CameraService` criado com `tirarFoto()` e `escolherDaGaleria()`, compressão de imagens, tratamento de permissões e cancelamento gracioso; validado na tela de teste `TelaTesteCamera`.
+- 2026-10-14 — Issue #12 concluída: `NotificacoesService` criado com `agendarAlerta()`, regra de antecedência de 3 dias, mensagens em português e listagem de agendamentos; validado na tela de teste `TelaTesteNotificacoes`.
+- 2026-10-14 — Issue #13 concluída: integração da captura de foto (câmera/galeria) no cadastro, persistência no FileSystem e exibição da foto ou placeholder no ProdutoCard.

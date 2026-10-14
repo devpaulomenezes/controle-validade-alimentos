@@ -8,10 +8,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Image,
   StyleSheet,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import Produto from '../data/Produto';
+import CameraService from '../services/CameraService';
 // MOCK: trocado pelo JsonProdutoRepository real na issue #10.
 import repositorio, { gerarIdMock } from '../mocks/MockProdutoRepository';
 import { cores, espacamento, raio, fonte, estilosBase } from '../components/theme';
@@ -38,6 +40,7 @@ export default function TelaCadastro({ navigation }) {
   const [nome, setNome] = useState('');
   const [quantidade, setQuantidade] = useState('');
   const [dataDeValidade, setDataDeValidade] = useState(null); // 'YYYY-MM-DD'
+  const [fotoUri, setFotoUri] = useState(null);
   const [erros, setErros] = useState({});
   const [salvando, setSalvando] = useState(false);
   const [mostrarSeletorIOS, setMostrarSeletorIOS] = useState(false);
@@ -68,24 +71,55 @@ export default function TelaCadastro({ navigation }) {
     }
   }
 
+  function abrirOpcoesFoto() {
+    Alert.alert('Foto do produto', 'Escolha como adicionar a foto:', [
+      {
+        text: 'Tirar foto',
+        onPress: async () => {
+          const uri = await CameraService.tirarFoto();
+          if (uri) setFotoUri(uri);
+        },
+      },
+      {
+        text: 'Escolher da galeria',
+        onPress: async () => {
+          const uri = await CameraService.escolherDaGaleria();
+          if (uri) setFotoUri(uri);
+        },
+      },
+      ...(fotoUri
+        ? [
+            {
+              text: 'Remover foto',
+              style: 'destructive',
+              onPress: () => setFotoUri(null),
+            },
+          ]
+        : []),
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  }
+
   async function salvar() {
     if (salvandoRef.current) return;
     const novosErros = validar({ nome, quantidade, dataDeValidade });
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
 
-    const produto = new Produto({
-      id: gerarIdMock(),
-      nome: nome.trim(),
-      quantidade: Number(quantidade),
-      dataDeValidade,
-      fotoUri: null, // a foto entra na issue #13
-      dataDeCadastro: new Date().toISOString(),
-    });
-
     salvandoRef.current = true;
     setSalvando(true);
     try {
+      const fotoPersistida = fotoUri ? await CameraService.persistirFoto(fotoUri) : null;
+
+      const produto = new Produto({
+        id: gerarIdMock(),
+        nome: nome.trim(),
+        quantidade: Number(quantidade),
+        dataDeValidade,
+        fotoUri: fotoPersistida,
+        dataDeCadastro: new Date().toISOString(),
+      });
+
       await repositorio.salvar(produto);
       // Sucesso: o botão continua desabilitado; a tela fecha no OK do alerta.
       Alert.alert('Produto salvo', `"${produto.nome}" foi cadastrado com sucesso.`, [
@@ -152,7 +186,6 @@ export default function TelaCadastro({ navigation }) {
             <Text style={dataDeValidade ? styles.textoData : styles.textoPlaceholder}>
               {dataDeValidade ? formatarDataBR(dataDeValidade) : 'Selecionar data'}
             </Text>
-            <Text>📅</Text>
           </TouchableOpacity>
           {erros.dataDeValidade ? (
             <Text style={estilosBase.textoErro}>{erros.dataDeValidade}</Text>
@@ -171,6 +204,32 @@ export default function TelaCadastro({ navigation }) {
               </TouchableOpacity>
             </View>
           ) : null}
+        </View>
+
+        <View style={styles.grupo}>
+          <Text style={estilosBase.rotulo}>Foto do produto (opcional)</Text>
+          {fotoUri ? (
+            <View style={styles.containerPreviewFoto}>
+              <Image source={{ uri: fotoUri }} style={styles.previewFoto} resizeMode="cover" />
+              <TouchableOpacity
+                style={styles.botaoAlterarFoto}
+                onPress={abrirOpcoesFoto}
+                accessibilityRole="button"
+                accessibilityLabel="Alterar foto"
+              >
+                <Text style={styles.textoBotaoAlterarFoto}>Alterar ou remover foto</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[estilosBase.campo, styles.campoFoto]}
+              onPress={abrirOpcoesFoto}
+              accessibilityRole="button"
+              accessibilityLabel="Adicionar foto"
+            >
+              <Text style={styles.textoPlaceholderFoto}>Adicionar foto</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity
@@ -207,6 +266,41 @@ const styles = StyleSheet.create({
   textoPlaceholder: {
     fontSize: fonte.normal,
     color: cores.textoSecundario,
+  },
+  campoFoto: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderStyle: 'dashed',
+    paddingVertical: espacamento.md,
+  },
+  textoPlaceholderFoto: {
+    color: cores.primaria,
+    fontWeight: '600',
+    fontSize: fonte.normal,
+  },
+  containerPreviewFoto: {
+    alignItems: 'center',
+    backgroundColor: cores.superficie,
+    borderRadius: raio.md,
+    borderColor: cores.borda,
+    borderWidth: 1,
+    padding: espacamento.sm,
+  },
+  previewFoto: {
+    width: '100%',
+    height: 180,
+    borderRadius: raio.sm,
+    backgroundColor: cores.fundo,
+  },
+  botaoAlterarFoto: {
+    marginTop: espacamento.sm,
+    paddingVertical: espacamento.xs + 2,
+    paddingHorizontal: espacamento.md,
+  },
+  textoBotaoAlterarFoto: {
+    color: cores.primaria,
+    fontWeight: '600',
+    fontSize: fonte.pequena,
   },
   seletorIOS: {
     marginTop: espacamento.sm,

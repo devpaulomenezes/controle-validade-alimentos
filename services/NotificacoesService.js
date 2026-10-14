@@ -55,7 +55,6 @@ export default class NotificacoesService {
         trigger = {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 2,
-          channelId: CANAL_ANDROID,
         };
       } else {
         const data = parseDataLocal(produto.dataDeValidade);
@@ -64,7 +63,6 @@ export default class NotificacoesService {
         trigger = {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: data,
-          channelId: CANAL_ANDROID,
         };
       }
 
@@ -106,9 +104,13 @@ export default class NotificacoesService {
 
   static async #garantirCanalAndroid() {
     if (Platform.OS !== 'android') return;
-    await Notifications.setNotificationChannelAsync(CANAL_ANDROID, {
-      name: 'Validade de produtos',
-      importance: Notifications.AndroidImportance.HIGH,
-    });
+    try {
+      await Notifications.setNotificationChannelAsync(CANAL_ANDROID, {
+        name: 'Validade de produtos',
+        importance: Notifications.AndroidImportance.HIGH,
+      });
+    } catch {
+      // No Expo Go no Android, o gerenciador de canais não é exposto nativamente.
+    }
   }
 }

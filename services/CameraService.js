@@ -1,5 +1,6 @@
 import { Alert, Linking } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const OPCOES_CAPTURA = {
   mediaTypes: ['images'],
@@ -22,6 +23,33 @@ export default class CameraService {
       abrir: ImagePicker.launchImageLibraryAsync,
       recurso: 'a galeria',
     });
+  }
+
+  /**
+   * Copia a foto temporária (do cache de captura) para o armazenamento persistente
+   * do app (FileSystem.documentDirectory/fotos), garantindo persistência após reiniciar.
+   * @param {string|null} uriTemporaria - URI local temporária retornada pelo picker.
+   * @returns {Promise<string|null>} URI persistente no diretório de documentos.
+   */
+  static async persistirFoto(uriTemporaria) {
+    if (!uriTemporaria) return null;
+    try {
+      const pastaFotos = `${FileSystem.documentDirectory}fotos/`;
+      const info = await FileSystem.getInfoAsync(pastaFotos);
+      if (!info.exists) {
+        await FileSystem.makeDirectoryAsync(pastaFotos, { intermediates: true });
+      }
+
+      const extensao = uriTemporaria.split('.').pop()?.split('?')[0] || 'jpg';
+      const nomeArquivo = `foto-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extensao}`;
+      const destino = `${pastaFotos}${nomeArquivo}`;
+
+      await FileSystem.copyAsync({ from: uriTemporaria, to: destino });
+      return destino;
+    } catch (erro) {
+      console.error('CameraService: falha ao persistir foto', erro);
+      return uriTemporaria;
+    }
   }
 
   static async #capturar({ pedirPermissao, abrir, recurso }) {
