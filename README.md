@@ -57,10 +57,54 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 ## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
-    components/    → componentes reutilizáveis
+    components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, formatoData.js)
     services/      → ServicoValidade, ServicoDashboard, NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (Etapa 1)
-    
+    mocks/         → mocks TEMPORÁRIOS do bloco de interface (removidos na issue #10)
+
+## Interface: tema e componentes (issue #7)
+
+- **Tema central** (`components/theme.js`): paleta de cores, espaçamentos, raios, tamanhos de
+  fonte e estilos base (`estilosBase`). Telas e componentes importam daqui — nada de cores soltas.
+- **Cores das situações** (chaves iguais às do `ServicoValidade.classificarSituacao`, issue #4):
+  vermelho = `vencido`, amarelo = `venceEstaSemana`, azul = `venceEsteMes`, verde = `ok`.
+- **`ProdutoCard`**: recebe `produto` (contrato da #1) e `situacao` (já classificada) e exibe nome,
+  quantidade, validade (DD/MM/AAAA), foto quando houver e o selo colorido da situação.
+  **Não calcula datas** — só exibe o que recebe.
+- **`EmptyState`**: estado de lista vazia com ícone, mensagem e botão de ação opcional.
+- **Tela de teste temporária** (`TelaTesteComponentes`): usada na #7 para validar um cartão em
+  cada situação e o EmptyState; removida na #9, quando a listagem real passou a usar os componentes.
+
+## Interface: tela de cadastro (issue #8)
+
+- Formulário com **nome**, **quantidade** e **data de validade**, e botão "Salvar".
+- **Date picker:** `@react-native-community/datetimepicker` (incluído no Expo Go; instalado com
+  `npx expo install`). No Android usa a API imperativa `DateTimePickerAndroid.open`, recomendada
+  pela biblioteca. A data é gravada no formato do contrato (`'YYYY-MM-DD'`) a partir da data
+  **local** — sem `toISOString()`, que converte para UTC e pode adiantar um dia à noite.
+- **Validação** (mensagens em português): nome obrigatório, quantidade inteira maior que zero e
+  data obrigatória. Datas passadas são aceitas (o produto pode já estar vencido).
+- Ao salvar, cria um `Produto` do contrato (id e `dataDeCadastro` gerados localmente),
+  grava no **mock em memória** (`mocks/MockProdutoRepository`, que segue a interface
+  `ProdutoRepository`), mostra "Produto salvo" e volta à tela inicial. O produto salvo
+  aparece no console do Metro. A persistência real entra na issue #10.
+
+## Interface: tela de listagem (issue #9)
+
+- A tela inicial lista os produtos com o `ProdutoCard`, **ordenados pela validade mais próxima**,
+  e recarrega ao ganhar foco (o produto recém-cadastrado aparece ao voltar do cadastro).
+- **Busca local** por nome enquanto o usuário digita, sem diferenciar maiúsculas e acentos
+  ("lei" encontra "Leite"; "feijao" encontra "Feijão").
+- **Filtro por situação**: Todas / Vencidos / Vencem esta semana / Vencem este mês / Ok.
+- **EmptyState** quando não há produtos (com botão para cadastrar) e quando a busca ou o filtro
+  não encontram nada. Botão "+ Novo" no cabeçalho para abrir o cadastro.
+- A tela **não calcula datas**: a situação e a ordenação vêm de `mocks/servicosMock.js`, que tem
+  as mesmas assinaturas do `ServicoValidade.classificarSituacao` (#4) e do
+  `ServicoDashboard.ordenarPorValidade` (#5). Na #10 basta trocar os imports pelos serviços reais.
+- **Dados mock:** `mocks/produtosMock.js` traz 9 produtos com validades relativas a hoje (todas as
+  situações e vários "Leite ..." para a busca). Para ver o EmptyState, troque
+  `SEMEAR_DADOS_MOCK` para `false` em `mocks/MockProdutoRepository.js`.
+
 ## Fluxo de trabalho Git (regra do grupo)
 
 - Desenvolvimento exclusivamente na branch **`dev`**
@@ -110,3 +154,13 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
   `NotificacoesService` movida para o bloco do João;   labels `setup`, `feat` e `docs` configuradas.
 - 2026-10-02 — Issue #1 concluída: estrutura de pastas (app, components, services, data) criada; contrato de dados definido (Produto + ProdutoRepository), base para os blocos independentes da Etapa 1.
 - 2026-10-02 — Issue #2 concluída: React Navigation configurado (NavigationContainer + native stack); telas TelaInicial e TelaCadastro criadas em app/; navegação Inicial → Cadastro → Voltar funcional.
+- 2026-10-13 — Issue #7 concluída: tema visual central (`components/theme.js`) e componentes
+  reutilizáveis `ProdutoCard` e `EmptyState`, validados na tela de teste temporária com produtos mock
+  nas 4 situações; cabeçalho da navegação usando as cores do tema.
+- 2026-10-13 — Issue #8 concluída: tela de cadastro com formulário validado e date picker
+  (`@react-native-community/datetimepicker`), salvando em repositório mock em memória
+  (`mocks/`), que segue o contrato da #1.
+- 2026-10-13 — Issue #9 concluída: tela inicial transformada na listagem com `ProdutoCard`,
+  ordenação por validade, busca local por nome, filtro por situação e EmptyState; situação e
+  ordenação vindas de serviços mock com as assinaturas das issues #4 e #5; tela de teste da #7
+  removida.
