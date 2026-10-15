@@ -13,10 +13,12 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import ProdutoCard from '../components/ProdutoCard';
 import EmptyState from '../components/EmptyState';
+import PainelDashboard from '../components/PainelDashboard';
 import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../components/theme';
-// MOCKS: trocados pelo repositório e serviços reais na issue #10.
+// MOCKS: trocados pelo JsonProdutoRepository (#3) e pelos serviços reais (#4 e #5)
+// assim que eles estiverem na dev; é a parte que falta da issue #10.
 import repositorio from '../mocks/MockProdutoRepository';
-import { classificarSituacao, ordenarPorValidade } from '../mocks/servicosMock';
+import { classificarSituacao, ordenarPorValidade, resumirProdutos } from '../mocks/servicosMock';
 
 const FILTROS = [
   { chave: 'todas', rotulo: 'Todas' },
@@ -32,6 +34,12 @@ function normalizar(texto) {
   return typeof minusculo.normalize === 'function'
     ? minusculo.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     : minusculo;
+}
+
+/** Lê os produtos do repositório, já ordenados e com a situação de cada um. */
+async function carregarItens() {
+  const produtos = ordenarPorValidade(await repositorio.listar());
+  return produtos.map((produto) => ({ produto, situacao: classificarSituacao(produto) }));
 }
 
 export default function TelaInicial({ navigation }) {
@@ -80,24 +88,40 @@ export default function TelaInicial({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       let ativo = true;
-      async function carregar() {
-        try {
-          const produtos = ordenarPorValidade(await repositorio.listar());
-          if (ativo) {
-            setItens(produtos.map((produto) => ({ produto, situacao: classificarSituacao(produto) })));
-          }
-        } catch (erro) {
-          console.error('[TelaInicial] erro ao carregar produtos:', erro);
-        } finally {
+      carregarItens()
+        .then((novos) => {
+          if (ativo) setItens(novos);
+        })
+        .catch((erro) => console.error('[TelaInicial] erro ao carregar produtos:', erro))
+        .finally(() => {
           if (ativo) setCarregando(false);
-        }
-      }
-      carregar();
+        });
       return () => {
         ativo = false;
       };
     }, [])
   );
+
+  const confirmarRemocao = useCallback((produto) => {
+    Alert.alert('Remover produto', `Remover "${produto.nome}" da lista?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Remover',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await repositorio.remover(produto.id);
+            setItens(await carregarItens());
+          } catch (erro) {
+            console.error('[TelaInicial] erro ao remover produto:', erro);
+            Alert.alert('Erro', 'Não foi possível remover o produto. Tente novamente.');
+          }
+        },
+      },
+    ]);
+  }, []);
+
+  const resumo = useMemo(() => resumirProdutos(itens.map(({ produto }) => produto)), [itens]);
 
   const itensVisiveis = useMemo(() => {
     const termo = normalizar(busca.trim());
@@ -126,6 +150,7 @@ export default function TelaInicial({ navigation }) {
   return (
     <View style={estilosBase.tela}>
       <View style={styles.topo}>
+        <PainelDashboard resumo={resumo} onSelecionar={setFiltro} />
         <TextInput
           style={estilosBase.campo}
           placeholder="Buscar por nome"
@@ -163,7 +188,9 @@ export default function TelaInicial({ navigation }) {
       <FlatList
         data={itensVisiveis}
         keyExtractor={({ produto }) => produto.id}
-        renderItem={({ item }) => <ProdutoCard produto={item.produto} situacao={item.situacao} />}
+        renderItem={({ item }) => (
+          <ProdutoCard produto={item.produto} situacao={item.situacao} onRemover={confirmarRemocao} />
+        )}
         contentContainerStyle={styles.lista}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"

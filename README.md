@@ -105,6 +105,20 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   situações e vários "Leite ..." para a busca). Para ver o EmptyState, troque
   `SEMEAR_DADOS_MOCK` para `false` em `mocks/MockProdutoRepository.js`.
 
+## Interface: dashboard e remoção de produto (issue #10 — parte visual)
+
+- **Painel no topo da tela inicial** (`components/PainelDashboard.js`): destaque em âmbar com a
+  quantidade de produtos que **vencem esta semana** e contadores de vencidos, deste mês e do total.
+  Tocar num contador aplica o filtro correspondente da listagem (o total volta para "Todas").
+- Os números vêm de `resumirProdutos(produtos)`, com a assinatura do `ServicoDashboard` (#5):
+  `{ total, vencidos, venceEstaSemana, venceEsteMes, ok }`. A classificação é delegada a
+  `classificarSituacao`, então a soma dos contadores é sempre igual ao total.
+- **Remoção de produto**: botão "Remover" em cada cartão, com confirmação; chama `remover(id)` do
+  repositório e recarrega a lista e o painel.
+- **Pendente** (depende da #3 e da #5): trocar `mocks/MockProdutoRepository` pelo
+  `JsonProdutoRepository` e `mocks/servicosMock` pelos serviços reais em `TelaInicial` e
+  `TelaCadastro`, remover a pasta `mocks/` e validar a persistência fechando e reabrindo o app.
+
 ## Recursos do dispositivo: câmera e galeria (issue #11)
 
 - **`CameraService` (`services/CameraService.js`)**:
@@ -206,3 +220,6 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 - 2026-10-14 — Issue #11 concluída: `CameraService` criado com `tirarFoto()` e `escolherDaGaleria()`, compressão de imagens, tratamento de permissões e cancelamento gracioso; validado na tela de teste `TelaTesteCamera`.
 - 2026-10-14 — Issue #12 concluída: `NotificacoesService` criado com `agendarAlerta()`, regra de antecedência de 3 dias, mensagens em português e listagem de agendamentos; validado na tela de teste `TelaTesteNotificacoes`.
 - 2026-10-14 — Issue #13 concluída: integração da captura de foto (câmera/galeria) no cadastro, persistência no FileSystem e exibição da foto ou placeholder no ProdutoCard.
+- 2026-10-14 — Issue #10, parte visual: painel do dashboard "vencendo esta semana" e remoção de
+  produto na tela inicial, ainda via mock; a troca pelo repositório e pelos serviços reais aguarda
+  as issues #3 e #5. Alerta de foto do cadastro ajustado ao limite de 3 botões do Android.

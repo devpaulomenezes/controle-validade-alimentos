@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { cores, situacoes, espacamento, raio, fonte } from './theme';
 import { formatarDataBR } from './formatoData';
 
@@ -12,8 +12,9 @@ import { formatarDataBR } from './formatoData';
  * @param {Object} props
  * @param {import('../data/Produto').default} props.produto - Produto do contrato da issue #1.
  * @param {'vencido'|'venceEstaSemana'|'venceEsteMes'|'ok'} props.situacao - Situação já classificada.
+ * @param {(produto) => void} [props.onRemover] - Quando informado, mostra o botão "Remover".
  */
-export default function ProdutoCard({ produto, situacao }) {
+export default function ProdutoCard({ produto, situacao, onRemover }) {
   const [erroImagem, setErroImagem] = useState(false);
   const estiloSituacao = situacoes[situacao];
   const corDestaque = estiloSituacao ? estiloSituacao.cor : cores.borda;
@@ -45,6 +46,18 @@ export default function ProdutoCard({ produto, situacao }) {
           </View>
         ) : null}
       </View>
+
+      {onRemover ? (
+        <TouchableOpacity
+          onPress={() => onRemover(produto)}
+          accessibilityRole="button"
+          accessibilityLabel={`Remover ${produto.nome}`}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.botaoRemover}
+        >
+          <Text style={styles.textoRemover}>Remover</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -99,5 +112,15 @@ const styles = StyleSheet.create({
   textoSelo: {
     fontSize: fonte.pequena,
     fontWeight: 'bold',
+  },
+  botaoRemover: {
+    alignSelf: 'flex-start',
+    marginLeft: espacamento.sm,
+    paddingVertical: espacamento.xs,
+  },
+  textoRemover: {
+    fontSize: fonte.pequena,
+    fontWeight: 'bold',
+    color: cores.erro,
   },
 });
