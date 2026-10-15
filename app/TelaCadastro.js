@@ -71,33 +71,31 @@ export default function TelaCadastro({ navigation }) {
     }
   }
 
+  // No Android o Alert mostra no máximo 3 botões; por isso "Remover foto"
+  // fica fora daqui, como botão próprio na pré-visualização.
   function abrirOpcoesFoto() {
-    Alert.alert('Foto do produto', 'Escolha como adicionar a foto:', [
-      {
-        text: 'Tirar foto',
-        onPress: async () => {
-          const uri = await CameraService.tirarFoto();
-          if (uri) setFotoUri(uri);
+    Alert.alert(
+      'Foto do produto',
+      'Escolha como adicionar a foto:',
+      [
+        {
+          text: 'Tirar foto',
+          onPress: async () => {
+            const uri = await CameraService.tirarFoto();
+            if (uri) setFotoUri(uri);
+          },
         },
-      },
-      {
-        text: 'Escolher da galeria',
-        onPress: async () => {
-          const uri = await CameraService.escolherDaGaleria();
-          if (uri) setFotoUri(uri);
+        {
+          text: 'Escolher da galeria',
+          onPress: async () => {
+            const uri = await CameraService.escolherDaGaleria();
+            if (uri) setFotoUri(uri);
+          },
         },
-      },
-      ...(fotoUri
-        ? [
-            {
-              text: 'Remover foto',
-              style: 'destructive',
-              onPress: () => setFotoUri(null),
-            },
-          ]
-        : []),
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
   }
 
   async function salvar() {
@@ -211,14 +209,24 @@ export default function TelaCadastro({ navigation }) {
           {fotoUri ? (
             <View style={styles.containerPreviewFoto}>
               <Image source={{ uri: fotoUri }} style={styles.previewFoto} resizeMode="cover" />
-              <TouchableOpacity
-                style={styles.botaoAlterarFoto}
-                onPress={abrirOpcoesFoto}
-                accessibilityRole="button"
-                accessibilityLabel="Alterar foto"
-              >
-                <Text style={styles.textoBotaoAlterarFoto}>Alterar ou remover foto</Text>
-              </TouchableOpacity>
+              <View style={styles.acoesFoto}>
+                <TouchableOpacity
+                  style={styles.botaoAlterarFoto}
+                  onPress={abrirOpcoesFoto}
+                  accessibilityRole="button"
+                  accessibilityLabel="Trocar foto"
+                >
+                  <Text style={styles.textoBotaoAlterarFoto}>Trocar foto</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.botaoAlterarFoto}
+                  onPress={() => setFotoUri(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remover foto"
+                >
+                  <Text style={[styles.textoBotaoAlterarFoto, styles.textoRemoverFoto]}>Remover foto</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
             <TouchableOpacity
@@ -292,6 +300,10 @@ const styles = StyleSheet.create({
     borderRadius: raio.sm,
     backgroundColor: cores.fundo,
   },
+  acoesFoto: {
+    flexDirection: 'row',
+    gap: espacamento.md,
+  },
   botaoAlterarFoto: {
     marginTop: espacamento.sm,
     paddingVertical: espacamento.xs + 2,
@@ -301,6 +313,9 @@ const styles = StyleSheet.create({
     color: cores.primaria,
     fontWeight: '600',
     fontSize: fonte.pequena,
+  },
+  textoRemoverFoto: {
+    color: cores.erro,
   },
   seletorIOS: {
     marginTop: espacamento.sm,
