@@ -22,7 +22,7 @@ class MockProdutoRepository extends ProdutoRepository {
   }
 
   async listar() {
-    return [...this.produtos];
+    return this.produtos.map((p) => ({ ...p }));
   }
 
   async salvar(produto) {
@@ -41,7 +41,8 @@ class MockProdutoRepository extends ProdutoRepository {
   }
 
   async buscarPorId(id) {
-    return this.produtos.find((p) => p.id === id) ?? null;
+    const p = this.produtos.find((produto) => produto.id === id);
+    return p ? { ...p } : null;
   }
 }
 
