@@ -30,6 +30,7 @@ export default function ProdutoCard({ produto, situacao, onRemover }) {
         />
       ) : (
         <View style={[styles.foto, styles.placeholder]}>
+          <Text style={styles.iconePlaceholder}>🥫</Text>
         </View>
       )}
 
@@ -88,6 +89,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: cores.borda,
+  },
+  iconePlaceholder: {
+    fontSize: 28,
+    textAlign: 'center',
   },
   info: {
     flex: 1,
