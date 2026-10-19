@@ -48,7 +48,7 @@ export default class CameraService {
       return destino;
     } catch (erro) {
       console.error('CameraService: falha ao persistir foto', erro);
-      return uriTemporaria;
+      return null;
     }
   }
 
