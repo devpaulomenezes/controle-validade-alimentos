@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { cores, situacoes, espacamento, raio, fonte } from './theme';
 import { formatarDataBR } from './formatoData';
@@ -16,6 +16,11 @@ import { formatarDataBR } from './formatoData';
  */
 export default function ProdutoCard({ produto, situacao, onRemover }) {
   const [erroImagem, setErroImagem] = useState(false);
+
+  useEffect(() => {
+    setErroImagem(false);
+  }, [produto.fotoUri]);
+
   const estiloSituacao = situacoes[situacao];
   const corDestaque = estiloSituacao ? estiloSituacao.cor : cores.borda;
   const temFoto = Boolean(produto.fotoUri) && !erroImagem;
