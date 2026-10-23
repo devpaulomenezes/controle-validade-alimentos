@@ -75,11 +75,32 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 - **Telas ainda no mock**: `TelaInicial` e `TelaCadastro` continuam usando o
   `MockProdutoRepository`; a troca pelo repositório real é da issue #10.
 
+## Regras de vencimento: ServicoValidade (issue #4)
+
+- **`services/ServicoValidade.js`**: regras de vencimento centralizadas na
+  camada de serviços — nenhuma tela calcula datas. Serviço puro: recebe o
+  `Produto` como parâmetro e não acessa repositório.
+- **`calcularDiasRestantes(dataDeValidade)`**: diferença em dias inteiros entre
+  a validade e hoje, considerando apenas a DATA (ignora hora) e sem deslocamento
+  de fuso — parse local via `isoParaData` (formatoData), nunca
+  `new Date('YYYY-MM-DD')` (UTC) nem `toISOString()`.
+- **`classificarSituacao(produto)`**: `vencido` (dias < 0), `venceEstaSemana`
+  (0 a 7 dias, inclusive hoje), `venceEsteMes` (8 a 30 dias) e `ok` (mais de
+  30 dias) — mesmas faixas do `servicosMock`, para a troca na #10 ser
+  transparente; as cores das situações (theme da #7) usam essas chaves.
+- **Tela de teste temporária** (`TelaTesteServicoValidade`, rota
+  `TesteServicoValidade`): exibe os casos-limite (ontem, hoje, +7, +8 e +35
+  dias) com dias restantes e situação calculados pelo serviço; será removida
+  na #10 junto com os mocks. Não entra no menu "🧪 Testes" (Alert do Android
+  tem limite de 3 botões).
+- **Pendente** (depende da #5): as telas continuam usando `servicosMock`; a
+  troca pelos serviços reais (`ServicoValidade` + `ServicoDashboard`) é da #10.
+
 ## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
     components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, formatoData.js)
-    services/      → ServicoValidade, ServicoDashboard, NotificacoesService, CameraService
+    services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (issue #5), NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
     mocks/         → mocks TEMPORÁRIOS do bloco de interface (removidos na issue #10)
 
@@ -248,3 +269,7 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
   `expo-file-system/legacy`, arquivo `produtos.json` no documentDirectory, id
   gerado pelo repositório quando ausente, erros de leitura/escrita tratados no
   console). Telas seguem no mock até a #10.
+- 2026-10-23 — Issue #4 concluída: `ServicoValidade` com
+  `calcularDiasRestantes` e `classificarSituacao` (faixas vencido / esta
+  semana / este mês / ok, iguais ao mock), cálculo só-data sem fuso e tela de
+  teste temporária com os casos-limite. Telas seguem no mock até a #10.

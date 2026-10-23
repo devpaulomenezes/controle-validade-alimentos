@@ -40,17 +40,17 @@ Run lint and typecheck before declaring any task done.
 
 ## Estrutura de pastas
 - app/ — telas (TelaInicial, TelaCadastro e telas de teste temporárias
-  TelaTesteCamera/TelaTesteNotificacoes)
+  TelaTesteCamera/TelaTesteNotificacoes/TelaTesteServicoValidade)
 - components/ — theme.js, ProdutoCard, EmptyState, formatoData, PainelDashboard
-- services/ — CameraService, NotificacoesService
+- services/ — CameraService, NotificacoesService, ServicoValidade
 - data/ — Produto, ProdutoRepository (contrato), JsonProdutoRepository (implementação real)
 - mocks/ — TEMPORÁRIOS do bloco de interface (removidos na issue #10)
 
 ## Estado atual (Etapa 1)
 - Concluídas: #1 (contrato), #2 (navegação), #3 (JsonProdutoRepository),
-  #7–#13 (interface e recursos do dispositivo).
-- Pendências conhecidas: #4 ServicoValidade, #5 ServicoDashboard, #6 testes
-  unitários, #10 troca dos mocks pelos reais, #14 validação final.
+  #4 (ServicoValidade), #7–#13 (interface e recursos do dispositivo).
+- Pendências conhecidas: #5 ServicoDashboard, #6 testes unitários, #10 troca dos
+  mocks pelos reais, #14 validação final.
 
 ## Convenções
 - Código, comentários e mensagens em português (pt-BR); JSDoc nos arquivos de contrato.
