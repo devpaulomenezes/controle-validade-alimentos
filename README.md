@@ -37,7 +37,7 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
 
 ## Contrato de dados (acordado na issue #1)
 
-O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente, usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`) será feita na issue #3.
+O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente, usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`) foi concluída na issue #3 — ver seção abaixo.
 
 **Modelo `Produto`:**
 - `id`: Identificador único do produto.
@@ -54,12 +54,33 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 - `remover(id)`: Remove um produto pelo seu ID.
 - `buscarPorId(id)`: Retorna um produto específico pelo ID.
 
+## Dados: JsonProdutoRepository (issue #3)
+
+- **`data/JsonProdutoRepository.js`**: primeira implementação real do contrato
+  `ProdutoRepository` (#1), estendendo a classe da interface (mesmo padrão do mock).
+- **Singleton**: `export default new JsonProdutoRepository()` — mesma convenção do mock.
+- **Persistência**: array de produtos serializado em `produtos.json`, na pasta de
+  documentos do app (`FileSystem.documentDirectory`); o arquivo é criado com `[]`
+  quando não existe e relido a cada operação. Os dados sobrevivem ao fechar e
+  reabrir o app.
+- **FileSystem**: usa a mesma API do `CameraService` — `expo-file-system/legacy`
+  (`getInfoAsync`, `readAsStringAsync`, `writeAsStringAsync`), alinhada ao SDK 57.
+- **Id único**: `salvar()` gera id para produtos que chegam sem `id` (mesmo padrão
+  do `gerarIdMock`); com `id`, grava o produto como veio.
+- **`dataDeValidade`**: persiste exatamente como string ISO (`'YYYY-MM-DD'`), sem
+  conversão de data — decisão do contrato da #1.
+- **Erros de leitura/escrita**: capturados com mensagem clara no console
+  (`[JsonProdutoRepository] ...`), sem travar o app; leitura com problema trata a
+  base como vazia e escrita com falha fica registrada no console.
+- **Telas ainda no mock**: `TelaInicial` e `TelaCadastro` continuam usando o
+  `MockProdutoRepository`; a troca pelo repositório real é da issue #10.
+
 ## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
     components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, formatoData.js)
     services/      → ServicoValidade, ServicoDashboard, NotificacoesService, CameraService
-    data/          → ProdutoRepository (interface) + JsonProdutoRepository (Etapa 1)
+    data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
     mocks/         → mocks TEMPORÁRIOS do bloco de interface (removidos na issue #10)
 
 ## Interface: tema e componentes (issue #7)
@@ -223,3 +244,7 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 - 2026-10-14 — Issue #10, parte visual: painel do dashboard "vencendo esta semana" e remoção de
   produto na tela inicial, ainda via mock; a troca pelo repositório e pelos serviços reais aguarda
   as issues #3 e #5. Alerta de foto do cadastro ajustado ao limite de 3 botões do Android.
+- 2026-10-23 — Issue #3 concluída: `JsonProdutoRepository` (CRUD real em JSON via
+  `expo-file-system/legacy`, arquivo `produtos.json` no documentDirectory, id
+  gerado pelo repositório quando ausente, erros de leitura/escrita tratados no
+  console). Telas seguem no mock até a #10.
