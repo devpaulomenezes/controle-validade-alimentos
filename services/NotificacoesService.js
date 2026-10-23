@@ -1,5 +1,24 @@
 import { Alert, Linking, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import { cancelAllScheduledNotificationsAsync } from 'expo-notifications/build/cancelAllScheduledNotificationsAsync';
+import { getAllScheduledNotificationsAsync } from 'expo-notifications/build/getAllScheduledNotificationsAsync';
+import { AndroidImportance } from 'expo-notifications/build/NotificationChannelManager.types';
+import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
+import { SchedulableTriggerInputTypes } from 'expo-notifications/build/Notifications.types';
+import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
+import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
+import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
+
+const Notifications = {
+  AndroidImportance,
+  SchedulableTriggerInputTypes,
+  cancelAllScheduledNotificationsAsync,
+  getAllScheduledNotificationsAsync,
+  getPermissionsAsync,
+  requestPermissionsAsync,
+  scheduleNotificationAsync,
+  setNotificationChannelAsync,
+  setNotificationHandler,
+};
 
 const DIAS_ANTECEDENCIA = 3;
 const HORA_ALERTA = 9;
