@@ -20,3 +20,6 @@ Camada de serviços do aplicativo, dividida em regras de negócio e recursos do 
 
 - **`ServicoValidade.js` (Issue #4):**
   - Regras de vencimento — `calcularDiasRestantes` e `classificarSituacao`, serviço puro.
+- **`ServicoDashboard.js` (Issue #5):**
+  - Agregações do dashboard — `resumirProdutos` e `ordenarPorValidade`, serviço puro que delega a classificação ao ServicoValidade.
+

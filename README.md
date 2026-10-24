@@ -96,11 +96,32 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 - **Pendente** (depende da #5): as telas continuam usando `servicosMock`; a
   troca pelos serviços reais (`ServicoValidade` + `ServicoDashboard`) é da #10.
 
+## Agregações do dashboard: ServicoDashboard (issue #5)
+
+- **`services/ServicoDashboard.js`**: agregações do dashboard centralizadas
+  na camada de serviços — nenhuma tela agrega dados. Serviço puro: recebe
+  os produtos como parâmetro e não acessa repositório.
+- **`resumirProdutos(produtos)`**: retorna `{ total, vencidos,
+  venceEstaSemana, venceEsteMes, ok }`; a classificação de cada produto é
+  delegada ao `classificarSituacao` do ServicoValidade (nenhum cálculo de
+  data duplicado), então a soma dos quatro contadores é sempre igual ao
+  `total`. O contador de `vencido` se chama `vencidos` (com S), como no
+  `servicosMock` que as telas usam hoje.
+- **`ordenarPorValidade(produtos)`**: nova lista ordenada pela validade mais
+  próxima (compara as strings `'YYYY-MM-DD'`, que em ordem alfabética já
+  ficam em ordem cronológica); não altera a lista original.
+- **Validação**: a tela de teste temporária da #4
+  (`TelaTesteServicoValidade`) foi estendida com uma seção "Dashboard" que
+  exibe os 5 contadores, a soma dos contadores ao lado do total e a lista
+  ordenada — removida na #10 junto com os mocks.
+- **Pendente**: as telas continuam usando `servicosMock`; a troca pelos
+  serviços reais (`ServicoValidade` + `ServicoDashboard`) é da #10.
+
 ## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
     components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, formatoData.js)
-    services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (issue #5), NotificacoesService, CameraService
+    services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
     mocks/         → mocks TEMPORÁRIOS do bloco de interface (removidos na issue #10)
 
@@ -273,3 +294,8 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
   `calcularDiasRestantes` e `classificarSituacao` (faixas vencido / esta
   semana / este mês / ok, iguais ao mock), cálculo só-data sem fuso e tela de
   teste temporária com os casos-limite. Telas seguem no mock até a #10.
+- 2026-10-24 — Issue #5 concluída: `ServicoDashboard` com `resumirProdutos`
+  (5 contadores, classificação delegada ao ServicoValidade, soma sempre
+  igual ao total) e `ordenarPorValidade` (lista nova, sem mutar a original),
+  semântica idêntica ao mock. Tela de teste temporária estendida com a
+  seção "Dashboard". Telas seguem no mock até a #10.

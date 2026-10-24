@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { calcularDiasRestantes, classificarSituacao } from '../services/ServicoValidade';
+import { resumirProdutos, ordenarPorValidade } from '../services/ServicoDashboard';
 import Produto from '../data/Produto';
 import { dataParaIso, formatarDataBR } from '../components/formatoData';
 import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../components/theme';
@@ -21,29 +22,33 @@ const CASOS_DE_TESTE = [
 ];
 
 /**
- * Tela de teste temporária para validação da Issue #4 (ServicoValidade).
+ * Tela de teste temporária para validação das Issues #4 (ServicoValidade) e #5 (ServicoDashboard).
  * Será removida na Issue #10 junto com os mocks.
  */
 export default function TelaTesteServicoValidade() {
   const hojeIso = dataParaIso(new Date());
 
+  const casosComoProdutos = CASOS_DE_TESTE.map((caso) => new Produto({
+    id: `teste-${caso.offset}`,
+    nome: caso.nome,
+    quantidade: 1,
+    dataDeValidade: dataRelativa(caso.offset),
+    fotoUri: null,
+    dataDeCadastro: hojeIso,
+  }));
+
+  const resumo = resumirProdutos(casosComoProdutos);
+  const ordenados = ordenarPorValidade(casosComoProdutos);
+  const somaContadores = resumo.vencidos + resumo.venceEstaSemana + resumo.venceEsteMes + resumo.ok;
+
   return (
     <ScrollView style={estilosBase.tela} contentContainerStyle={styles.conteudo}>
-      <Text style={styles.titulo}>Teste do ServicoValidade</Text>
+      <Text style={styles.titulo}>Teste do ServicoValidade e ServicoDashboard</Text>
       <Text style={styles.descricao}>
-        Tela de teste temporária da issue #4 para validação das regras de vencimento nos casos-limite.
+        Tela de teste temporária das issues #4 e #5 para validação das regras de vencimento nos casos-limite e das agregações do dashboard.
       </Text>
 
-      {CASOS_DE_TESTE.map((caso) => {
-        const produto = new Produto({
-          id: `teste-${caso.offset}`,
-          nome: caso.nome,
-          quantidade: 1,
-          dataDeValidade: dataRelativa(caso.offset),
-          fotoUri: null,
-          dataDeCadastro: hojeIso,
-        });
-
+      {casosComoProdutos.map((produto) => {
         const dias = calcularDiasRestantes(produto.dataDeValidade);
         const situacao = classificarSituacao(produto);
         const configSituacao = situacoes[situacao];
@@ -71,6 +76,63 @@ export default function TelaTesteServicoValidade() {
           </View>
         );
       })}
+
+      <View style={styles.divisor} />
+
+      <Text style={styles.tituloSecao}>Dashboard (Issue #5)</Text>
+      <Text style={styles.descricao}>
+        Agregações calculadas com ServicoDashboard sobre os 5 casos acima.
+      </Text>
+
+      {/* Contadores e verificação de consistência */}
+      <View style={styles.cardDashboard}>
+        <View style={styles.linhaTotal}>
+          <Text style={styles.rotuloTotal}>Total de produtos:</Text>
+          <Text style={styles.valorTotal}>
+            {resumo.total} <Text style={styles.somaTotal}>(Soma dos 4 contadores: {somaContadores})</Text>
+          </Text>
+        </View>
+
+        <View style={styles.gradeContadores}>
+          <View style={[styles.itemContador, { borderColor: situacoes.vencido.cor }]}>
+            <Text style={[styles.numeroContador, { color: situacoes.vencido.cor }]}>{resumo.vencidos}</Text>
+            <Text style={styles.rotuloContador}>{situacoes.vencido.rotulo}</Text>
+          </View>
+          <View style={[styles.itemContador, { borderColor: situacoes.venceEstaSemana.cor }]}>
+            <Text style={[styles.numeroContador, { color: situacoes.venceEstaSemana.cor }]}>{resumo.venceEstaSemana}</Text>
+            <Text style={styles.rotuloContador}>{situacoes.venceEstaSemana.rotulo}</Text>
+          </View>
+          <View style={[styles.itemContador, { borderColor: situacoes.venceEsteMes.cor }]}>
+            <Text style={[styles.numeroContador, { color: situacoes.venceEsteMes.cor }]}>{resumo.venceEsteMes}</Text>
+            <Text style={styles.rotuloContador}>{situacoes.venceEsteMes.rotulo}</Text>
+          </View>
+          <View style={[styles.itemContador, { borderColor: situacoes.ok.cor }]}>
+            <Text style={[styles.numeroContador, { color: situacoes.ok.cor }]}>{resumo.ok}</Text>
+            <Text style={styles.rotuloContador}>{situacoes.ok.rotulo}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Lista ordenada por validade */}
+      <Text style={styles.tituloSecao}>Lista ordenada por validade</Text>
+      <Text style={styles.descricao}>
+        Ordenada com ordenarPorValidade (mais próximo primeiro).
+      </Text>
+
+      <View style={styles.cardDashboard}>
+        {ordenados.map((item, index) => (
+          <View
+            key={item.id}
+            style={[
+              styles.linhaOrdenada,
+              index < ordenados.length - 1 && styles.bordaInferior,
+            ]}
+          >
+            <Text style={styles.nomeCasoOrdenado}>{item.nome}</Text>
+            <Text style={styles.valor}>{formatarDataBR(item.dataDeValidade)}</Text>
+          </View>
+        ))}
+      </View>
     </ScrollView>
   );
 }
@@ -129,4 +191,83 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: cores.texto,
   },
+  divisor: {
+    height: 1,
+    backgroundColor: cores.borda,
+    marginVertical: espacamento.md,
+  },
+  tituloSecao: {
+    fontSize: fonte.media,
+    fontWeight: 'bold',
+    color: cores.texto,
+    marginBottom: espacamento.xs,
+  },
+  cardDashboard: {
+    backgroundColor: cores.superficie,
+    borderRadius: raio.md,
+    padding: espacamento.md,
+    marginBottom: espacamento.md,
+    borderWidth: 1,
+    borderColor: cores.borda,
+  },
+  linhaTotal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: espacamento.md,
+    flexWrap: 'wrap',
+  },
+  rotuloTotal: {
+    fontSize: fonte.normal,
+    fontWeight: 'bold',
+    color: cores.texto,
+  },
+  valorTotal: {
+    fontSize: fonte.normal,
+    fontWeight: 'bold',
+    color: cores.texto,
+  },
+  somaTotal: {
+    fontSize: fonte.pequena,
+    fontWeight: 'normal',
+    color: cores.textoSecundario,
+  },
+  gradeContadores: {
+    flexDirection: 'row',
+    gap: espacamento.xs,
+  },
+  itemContador: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: espacamento.sm,
+    borderWidth: 1,
+    borderRadius: raio.sm,
+    backgroundColor: cores.fundo,
+  },
+  numeroContador: {
+    fontSize: fonte.titulo,
+    fontWeight: 'bold',
+  },
+  rotuloContador: {
+    fontSize: 11,
+    color: cores.textoSecundario,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  linhaOrdenada: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: espacamento.sm,
+  },
+  bordaInferior: {
+    borderBottomWidth: 1,
+    borderBottomColor: cores.borda,
+  },
+  nomeCasoOrdenado: {
+    fontSize: fonte.normal,
+    color: cores.texto,
+    fontWeight: '500',
+  },
 });
+
