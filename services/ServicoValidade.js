@@ -2,8 +2,8 @@
  * SERVIÇO REAL de regras de vencimento (issue #4) — camada de serviços da
  * arquitetura do README. Nenhuma tela calcula datas: as telas consomem este
  * serviço. Serviço puro: recebe o Produto como parâmetro e NÃO acessa
- * repositórios. Na issue #10, as telas trocam os mocks de servicosMock por
- * estas funções (mesmas assinaturas e mesma semântica).
+ * repositórios. Usado pelas telas, pelo ServicoDashboard e pelo
+ * NotificacoesService desde a issue #10.
  */
 import { isoParaData } from '../components/formatoData';
 
@@ -32,8 +32,7 @@ export function calcularDiasRestantes(dataDeValidade) {
 /**
  * Classifica o produto em uma das quatro situações:
  * vencido (menos de 0 dias), venceEstaSemana (0 a 7 dias, inclusive hoje),
- * venceEsteMes (8 a 30 dias) e ok (mais de 30 dias). Mesmas faixas do
- * servicosMock, para a troca na issue #10 ser transparente.
+ * venceEsteMes (8 a 30 dias) e ok (mais de 30 dias).
  * @param {import('../data/Produto').default} produto
  * @returns {'vencido'|'venceEstaSemana'|'venceEsteMes'|'ok'}
  * @example classificarSituacao(produtoQueVenceHoje) // 'venceEstaSemana'

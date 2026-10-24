@@ -3,9 +3,8 @@
  * da arquitetura do README. Nenhuma tela agrega dados: as telas consomem
  * este serviço. Serviço puro: recebe os produtos como parâmetro e NÃO
  * acessa repositórios. A classificação de cada produto é DELEGADA ao
- * ServicoValidade — nenhum cálculo de data duplicado aqui. Na issue #10,
- * as telas trocam os mocks de servicosMock por estas funções (mesmas
- * assinaturas e mesma semântica).
+ * ServicoValidade — nenhum cálculo de data duplicado aqui. Usado pela tela
+ * inicial desde a issue #10.
  */
 import { classificarSituacao } from './ServicoValidade';
 
