@@ -259,6 +259,17 @@ Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
 
 Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 
+## Testes
+
+Testes unitários executados com **Jest** utilizando o preset **`jest-expo`**.
+
+    npm test
+    # ou
+    npx jest
+
+- **`ServicoValidade` (`__tests__/ServicoValidade.test.js`)**: testes das funções `calcularDiasRestantes` (passado, hoje e futuro) e `classificarSituacao` cobrindo todos os casos-limite da issue #4 (`vencido`, `venceEstaSemana`, `venceEsteMes` e `ok`).
+- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover) e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`.
+
 ## Histórico de decisões
 
 - 2026-10-01 — Repositório inicializado; scaffold do Expo (template blank) mesclado ao `main`;
@@ -299,3 +310,5 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
   igual ao total) e `ordenarPorValidade` (lista nova, sem mutar a original),
   semântica idêntica ao mock. Tela de teste temporária estendida com a
   seção "Dashboard". Telas seguem no mock até a #10.
+- 2026-10-24 — Issue #6 concluída: configuração do Jest/jest-expo e testes unitários do bloco de dados (issue #6).
+
