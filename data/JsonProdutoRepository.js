@@ -3,8 +3,7 @@
  * dispositivo (issue #3). Implementa o contrato ProdutoRepository (issue #1)
  * estendendo a classe da interface, como faz o mock. Os dados ficam em
  * produtos.json, na pasta de documentos do app, e sobrevivem ao fechar e
- * reabrir o aplicativo. As telas ainda usam o MockProdutoRepository até a
- * integração feita na issue #10.
+ * reabrir o aplicativo. É o repositório usado pelas telas desde a issue #10.
  */
 import * as FileSystem from 'expo-file-system/legacy';
 import ProdutoRepository from './ProdutoRepository';
@@ -12,7 +11,7 @@ import Produto from './Produto';
 
 const CAMINHO_ARQUIVO = `${FileSystem.documentDirectory}produtos.json`;
 
-/** Gera um id único simples para novos produtos (mesmo padrão do gerarIdMock). */
+/** Gera um id único simples para novos produtos. */
 function gerarId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -36,8 +35,13 @@ class JsonProdutoRepository extends ProdutoRepository {
     }
   }
 
+  /** Gera id e dataDeCadastro quando o produto chega sem eles (a tela não gera). */
   async salvar(produto) {
-    const novo = produto.id ? produto : new Produto({ ...produto, id: gerarId() });
+    const novo = new Produto({
+      ...produto,
+      id: produto.id || gerarId(),
+      dataDeCadastro: produto.dataDeCadastro || new Date().toISOString(),
+    });
     const produtos = await this.listar();
     produtos.push(novo);
     await this.#gravar(produtos);

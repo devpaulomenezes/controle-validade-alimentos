@@ -109,4 +109,23 @@ describe('JsonProdutoRepository', () => {
     const produtoBuscadoAposRemover = await repositorio.buscarPorId(produtoSalvo.id);
     expect(produtoBuscadoAposRemover).toBeNull();
   });
+
+  it('deve gerar id e dataDeCadastro quando o produto chegar sem eles (cadastro da issue #10)', async () => {
+    await repositorio.salvar(
+      new Produto({
+        id: null,
+        nome: 'Iogurte',
+        quantidade: 1,
+        dataDeValidade: '2026-11-02',
+        fotoUri: null,
+        dataDeCadastro: null,
+      })
+    );
+
+    const [produtoSalvo] = await repositorio.listar();
+    expect(typeof produtoSalvo.id).toBe('string');
+    expect(produtoSalvo.id).toBeTruthy();
+    expect(typeof produtoSalvo.dataDeCadastro).toBe('string');
+    expect(Number.isNaN(Date.parse(produtoSalvo.dataDeCadastro))).toBe(false);
+  });
 });
