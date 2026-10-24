@@ -5,7 +5,6 @@ import TelaInicial from './app/TelaInicial';
 import TelaCadastro from './app/TelaCadastro';
 import TelaTesteCamera from './app/TelaTesteCamera';
 import TelaTesteNotificacoes from './app/TelaTesteNotificacoes';
-import TelaTesteServicoValidade from './app/TelaTesteServicoValidade';
 import { cores } from './components/theme';
 
 const Stack = createNativeStackNavigator();
@@ -25,7 +24,6 @@ export default function App() {
         <Stack.Screen name="Cadastro" component={TelaCadastro} options={{ title: 'Cadastrar produto' }} />
         <Stack.Screen name="TesteCamera" component={TelaTesteCamera} options={{ title: 'Teste CameraService' }} />
         <Stack.Screen name="TesteNotificacoes" component={TelaTesteNotificacoes} options={{ title: 'Teste Notificacoes' }} />
-        <Stack.Screen name="TesteServicoValidade" component={TelaTesteServicoValidade} options={{ title: 'Teste ServicoValidade' }} />
       </Stack.Navigator>
       <StatusBar style="light" />
     </NavigationContainer>
