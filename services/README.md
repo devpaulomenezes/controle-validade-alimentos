@@ -14,12 +14,13 @@ Camada de serviços do aplicativo, dividida em regras de negócio e recursos do 
 
 - **`NotificacoesService.js` (Issue #12):**
   - Serviço puro para agendamento de alertas locais usando `expo-notifications`.
-  - Método `agendarAlerta(produto)`: dispara notificação imediata se faltam 3 dias ou menos (ou se já venceu), ou agenda alerta local para 3 dias antes do vencimento às 09:00.
+  - Método `agendarAlerta(produto)`: dispara notificação imediata se faltam 3 dias ou menos (ou se já venceu), ou agenda alerta local para 3 dias antes do vencimento às 09:00. Chamado pela `TelaCadastro` ao salvar (#10).
+  - Dias restantes calculados pelo `ServicoValidade.calcularDiasRestantes` (#10) — sem cálculo de datas próprio.
 
 ## Regras de Negócio (bloco do Paulo)
 
 - **`ServicoValidade.js` (Issue #4):**
-  - Regras de vencimento — `calcularDiasRestantes` e `classificarSituacao`, serviço puro.
+  - Regras de vencimento — `calcularDiasRestantes` e `classificarSituacao`, serviço puro. Única fonte do cálculo de datas: usado pela `TelaInicial`, pelo `ServicoDashboard` e pelo `NotificacoesService`.
 - **`ServicoDashboard.js` (Issue #5):**
   - Agregações do dashboard — `resumirProdutos` e `ordenarPorValidade`, serviço puro que delega a classificação ao ServicoValidade.
 
