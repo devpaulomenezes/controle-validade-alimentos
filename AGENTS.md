@@ -39,19 +39,16 @@ Run lint and typecheck before declaring any task done.
   (padrão de services/CameraService.js).
 
 ## Estrutura de pastas
-- app/ — telas (TelaInicial, TelaCadastro e telas de teste temporárias
-  TelaTesteCamera/TelaTesteNotificacoes)
+- app/ — telas (TelaInicial e TelaCadastro)
 - components/ — theme.js, ProdutoCard, EmptyState, formatoData, PainelDashboard
 - services/ — CameraService, NotificacoesService, ServicoValidade, ServicoDashboard
 - data/ — Produto, ProdutoRepository (contrato), JsonProdutoRepository (implementação real)
-- __tests__/ — testes unitários (Jest + jest-expo; `npx jest`)
+- __tests__/ — testes unitários e de integração (Jest + jest-expo; `npx jest`)
 - Não há mais mocks: a pasta mocks/ foi removida na issue #10.
+- As telas de teste temporárias foram removidas na issue #14.
 
 ## Estado atual (Etapa 1)
-- Concluídas: #1 (contrato), #2 (navegação), #3 (JsonProdutoRepository),
-  #4 (ServicoValidade), #5 (ServicoDashboard), #6 (testes unitários),
-  #7–#13 (interface, integração com os dados e recursos do dispositivo).
-- Pendência conhecida: #14 validação final.
+- Concluídas: #1 a #14 (Etapa 1 finalizada).
 
 ## Convenções
 - Código, comentários e mensagens em português (pt-BR); JSDoc nos arquivos de contrato.
@@ -63,5 +60,5 @@ Run lint and typecheck before declaring any task done.
 - README.md é fonte de verdade viva — toda issue concluída o atualiza.
 
 ## Navegação
-React Navigation (native stack) configurado em App.js — rotas Inicial, Cadastro,
-TesteCamera e TesteNotificacoes. NÃO usar expo-router (descartado no MVP).
+React Navigation (native stack) configurado em App.js — rotas Inicial e Cadastro.
+NÃO usar expo-router (descartado no MVP).

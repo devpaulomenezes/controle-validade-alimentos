@@ -116,11 +116,11 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 
 ## Estrutura de pastas (implementada na issue #1)
 
-    app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js e as telas de teste TelaTesteCamera.js e TelaTesteNotificacoes.js)
+    app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
     components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, PainelDashboard.js, formatoData.js)
     services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
-    __tests__/     → testes unitários (Jest) do bloco de dados (issue #6)
+    __tests__/     → testes unitários (issue #6) e de integração (issue #14) com Jest
 
 A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi removida na issue #10.
 
@@ -194,9 +194,8 @@ A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi remo
   - Cancelamento gracioso: fechar câmera ou galeria retorna `null` sem quebrar o fluxo nem gerar erro.
   - Retorna string com a URI local da imagem, atendendo ao campo `fotoUri` do contrato `Produto` (#1).
 - **Tela de teste temporária (`TelaTesteCamera.js`)**:
-  - Validação isolada com botões "Tirar foto" e "Escolher da galeria".
-  - Exibe a imagem capturada e a URI retornada, com botão para limpar.
-  - Acessível pelo botão "Testes" no cabeçalho da `TelaInicial`.
+  - Usada na #11 para validação isolada, com botões "Tirar foto" e "Escolher da galeria".
+  - Removida na #14, quando o fluxo real do cadastro passou a ser validado de ponta a ponta.
 
 ## Recursos do dispositivo: notificações locais (issue #12)
 
@@ -209,9 +208,8 @@ A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi remo
   - Funções auxiliares `listarAgendadas()` e `cancelarTodas()`.
   - Dias restantes calculados pelo `ServicoValidade` (#4) desde a #10; o `agendarAlerta` é chamado pela `TelaCadastro` ao salvar cada produto.
 - **Tela de teste temporária (`TelaTesteNotificacoes.js`)**:
-  - Botões para agendar 3 cenários de teste: "Vence amanhã" (alerta imediato), "Já vencido" (alerta imediato) e "Com folga" (agenda para o futuro).
-  - Listagem dos agendamentos ativos no sistema com opção de cancelamento em massa.
-  - Acessível pelo botão "Testes" no cabeçalho da `TelaInicial`.
+  - Usada na #12 para agendar 3 cenários ("Vence amanhã", "Já vencido" e "Com folga") e listar/cancelar os agendamentos.
+  - Removida na #14, quando o alerta ao cadastrar passou a ser validado no fluxo real.
 
 ## Recursos do dispositivo: integração da foto no fluxo do app (issue #13)
 
@@ -224,6 +222,24 @@ A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi remo
 - **Cartão do produto (`ProdutoCard.js`)**:
   - Exibe a foto persistida do produto quando `fotoUri` estiver definido.
   - Exibe placeholder estilizado com ícone `🥫` quando o produto for cadastrado sem foto ou em caso de falha no carregamento (`onError`).
+
+## Validação final da Etapa 1 (issue #14)
+
+- **Testes de integração** (`__tests__/IntegracaoEtapa1.test.js`): exercitam `JsonProdutoRepository`,
+  `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`
+  em conjunto, com o cenário de 5 produtos (1 vencido, 2 vencendo esta semana — um com foto e um sem —,
+  1 vencendo este mês e 1 ok). Conferem a persistência em `produtos.json`, a foto persistida, a ordenação
+  por validade, a classificação, os contadores do dashboard antes e depois de uma remoção e os alertas
+  (imediato para quem vence em até 3 dias, agendado para quem tem folga).
+- **Validação manual no Expo Go (SDK 57, Android)** — resultado: **sem erros**.
+  - Cadastro com foto pela câmera, salvamento e persistência em `produtos.json`.
+  - Listagem ordenada por validade, busca por nome e filtro por situação.
+  - Painel do dashboard com os contadores corretos para os 5 produtos e atualização ao remover.
+  - Notificação local ao cadastrar produto vencendo em menos de 3 dias.
+  - Foto e produtos continuam visíveis após fechar e reabrir o app.
+- **Limpeza**: as telas de teste temporárias (`TelaTesteCamera` e `TelaTesteNotificacoes`), suas rotas no
+  `App.js` e o botão "Testes" do cabeçalho foram removidos; o fluxo real cobre as duas validações.
+- **Testes unitários da #6** continuam passando após as integrações (`npx jest`).
 
 ## Fluxo de trabalho Git (regra do grupo)
 
@@ -265,7 +281,7 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 
 ## Testes
 
-Testes unitários executados com **Jest** utilizando o preset **`jest-expo`**.
+Testes unitários e de integração executados com **Jest** utilizando o preset **`jest-expo`**.
 
     npm test
     # ou
@@ -320,4 +336,8 @@ Testes unitários executados com **Jest** utilizando o preset **`jest-expo`**.
   alerta de vencimento agendado ao salvar; aviso quando a cópia da foto falha;
   `NotificacoesService` usando o cálculo de datas do `ServicoValidade`; pasta `mocks/` e
   `TelaTesteServicoValidade` removidas.
+- 2026-10-24 — Issue #14 concluída (fim da Etapa 1): testes de integração com o cenário de 5
+  produtos (`__tests__/IntegracaoEtapa1.test.js`), validação manual de ponta a ponta no Expo Go
+  (SDK 57) sem erros e remoção das telas de teste temporárias `TelaTesteCamera` e
+  `TelaTesteNotificacoes`, de suas rotas e do botão "Testes" do cabeçalho.
 
