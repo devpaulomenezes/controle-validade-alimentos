@@ -274,7 +274,7 @@ Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
 
 ## Como executar
 
-    npm install\
+    npm install
     npx expo start
 
 Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
@@ -289,6 +289,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 
 - **`ServicoValidade` (`__tests__/ServicoValidade.test.js`)**: testes das funções `calcularDiasRestantes` (passado, hoje e futuro) e `classificarSituacao` cobrindo todos os casos-limite da issue #4 (`vencido`, `venceEstaSemana`, `venceEsteMes` e `ok`).
 - **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`.
+- **`IntegracaoEtapa1` (`__tests__/IntegracaoEtapa1.test.js`)**: testes de integração da Etapa 1 (issue #14) verificando as peças funcionando em conjunto (`JsonProdutoRepository`, `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`) no cenário completo de 5 produtos.
 
 ## Histórico de decisões
 

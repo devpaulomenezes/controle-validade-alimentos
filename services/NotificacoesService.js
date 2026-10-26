@@ -56,7 +56,10 @@ export default class NotificacoesService {
       const dias = calcularDiasRestantes(produto.dataDeValidade);
       const content = {
         title: 'Produto vencendo',
-        body: montarCorpo(produto.nome, dias),
+        body:
+          dias > DIAS_ANTECEDENCIA
+            ? montarCorpo(produto.nome, DIAS_ANTECEDENCIA)
+            : montarCorpo(produto.nome, dias),
       };
 
       let trigger;

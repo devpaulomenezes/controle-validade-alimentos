@@ -222,7 +222,7 @@ describe('Integração da Etapa 1 (Issue #14)', () => {
 
     // Produto vencendo em 15 dias (> 3 dias): gatilho por data (3 dias antes às 09:00)
     expect(agendadas[1].content.title).toBe('Produto vencendo');
-    expect(agendadas[1].content.body).toBe('Pão de Forma vence em 15 dias!');
+    expect(agendadas[1].content.body).toBe('Pão de Forma vence em 3 dias!');
     expect(agendadas[1].trigger.date).toBeInstanceOf(Date);
     expect(agendadas[1].trigger.date.getHours()).toBe(9);
   });
