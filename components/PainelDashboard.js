@@ -13,7 +13,7 @@ const CONTADORES = [
  * vencem esta semana e contadores de vencidos, deste mês e do total.
  *
  * O painel NÃO calcula nada: o resumo chega pronto do
- * ServicoDashboard.resumirProdutos (ou do mock, enquanto ele não está integrado).
+ * ServicoDashboard.resumirProdutos.
  *
  * @param {Object} props
  * @param {{ total: number, vencidos: number, venceEstaSemana: number, venceEsteMes: number, ok: number }} props.resumo

@@ -7,6 +7,8 @@ import { SchedulableTriggerInputTypes } from 'expo-notifications/build/Notificat
 import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
 import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
 import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
+import { calcularDiasRestantes } from './ServicoValidade';
+import { isoParaData } from '../components/formatoData';
 
 const Notifications = {
   AndroidImportance,
@@ -22,7 +24,6 @@ const Notifications = {
 
 const DIAS_ANTECEDENCIA = 3;
 const HORA_ALERTA = 9;
-const MS_POR_DIA = 24 * 60 * 60 * 1000;
 const CANAL_ANDROID = 'validade';
 
 Notifications.setNotificationHandler({
@@ -33,17 +34,6 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
-
-function parseDataLocal(dataIso) {
-  const [ano, mes, dia] = dataIso.split('-').map(Number);
-  return new Date(ano, mes - 1, dia);
-}
-
-export function calcularDiasRestantes(dataDeValidade, hoje = new Date()) {
-  const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  const vencimento = parseDataLocal(dataDeValidade);
-  return Math.round((vencimento - inicioHoje) / MS_POR_DIA);
-}
 
 function montarCorpo(nome, dias) {
   if (dias < 0) {
@@ -66,7 +56,10 @@ export default class NotificacoesService {
       const dias = calcularDiasRestantes(produto.dataDeValidade);
       const content = {
         title: 'Produto vencendo',
-        body: montarCorpo(produto.nome, dias),
+        body:
+          dias > DIAS_ANTECEDENCIA
+            ? montarCorpo(produto.nome, DIAS_ANTECEDENCIA)
+            : montarCorpo(produto.nome, dias),
       };
 
       let trigger;
@@ -77,7 +70,7 @@ export default class NotificacoesService {
           channelId: CANAL_ANDROID,
         };
       } else {
-        const data = parseDataLocal(produto.dataDeValidade);
+        const data = isoParaData(produto.dataDeValidade);
         data.setDate(data.getDate() - DIAS_ANTECEDENCIA);
         data.setHours(HORA_ALERTA, 0, 0, 0);
         trigger = {

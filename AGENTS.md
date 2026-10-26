@@ -1,4 +1,9 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# AGENTS.md — controle-validade-alimentos
+
+## Visão geral
+App mobile de controle de validade de alimentos (PDM — grupo Paulo Moura, Arthur
+Alexandre e João Victor Lucena): React Native + Expo (SDK 57), template blank,
+JSX, validado no Expo Go.
 
 ## Expo has changed — do not trust your training data
 
@@ -23,19 +28,37 @@ npx expo install --fix      # fix incompatible package versions
 
 Run lint and typecheck before declaring any task done.
 
-## Navigation & Routing
+## Arquitetura
+- Padrão Repository em camadas: Tela → Serviço → ProdutoRepository (contrato em data/).
+- Implementações estendem a classe da interface: JsonProdutoRepository (#3, JSON
+  local em produtos.json) e, na Etapa 2, ApiProdutoRepository (API remota) — sem
+  mudar as telas.
+- Repositórios exportam Singleton (export default new ...).
+- Telas e componentes NÃO calculam datas (ServicoValidade/ServicoDashboard calculam).
+- expo-file-system: importar SEMPRE de 'expo-file-system/legacy' no SDK 57
+  (padrão de services/CameraService.js).
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+## Estrutura de pastas
+- app/ — telas (TelaInicial e TelaCadastro)
+- components/ — theme.js, ProdutoCard, EmptyState, formatoData, PainelDashboard
+- services/ — CameraService, NotificacoesService, ServicoValidade, ServicoDashboard
+- data/ — Produto, ProdutoRepository (contrato), JsonProdutoRepository (implementação real)
+- __tests__/ — testes unitários e de integração (Jest + jest-expo; `npx jest`)
+- Não há mais mocks: a pasta mocks/ foi removida na issue #10.
+- As telas de teste temporárias foram removidas na issue #14.
 
-## Building with EAS
+## Estado atual (Etapa 1)
+- Concluídas: #1 a #14 (Etapa 1 finalizada).
 
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
+## Convenções
+- Código, comentários e mensagens em português (pt-BR); JSDoc nos arquivos de contrato.
+- Estilos somente via components/theme.js.
+- Instalar pacotes somente com `npx expo install <package>`.
+- Lint com `npx eslint <caminhos>` (ex.: `npx eslint data`).
+- Git: desenvolvimento exclusivo na branch `dev`; Conventional Commits
+  (`feat:`, `fix:`, `chore:`, `docs:`); commit e push são do grupo, nunca do agente.
+- README.md é fonte de verdade viva — toda issue concluída o atualiza.
 
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+## Navegação
+React Navigation (native stack) configurado em App.js — rotas Inicial e Cadastro.
+NÃO usar expo-router (descartado no MVP).

@@ -3,8 +3,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import TelaInicial from './app/TelaInicial';
 import TelaCadastro from './app/TelaCadastro';
-import TelaTesteCamera from './app/TelaTesteCamera';
-import TelaTesteNotificacoes from './app/TelaTesteNotificacoes';
 import { cores } from './components/theme';
 
 const Stack = createNativeStackNavigator();
@@ -22,8 +20,6 @@ export default function App() {
       >
         <Stack.Screen name="Inicial" component={TelaInicial} options={{ title: 'Controle de Validade' }} />
         <Stack.Screen name="Cadastro" component={TelaCadastro} options={{ title: 'Cadastrar produto' }} />
-        <Stack.Screen name="TesteCamera" component={TelaTesteCamera} options={{ title: 'Teste CameraService' }} />
-        <Stack.Screen name="TesteNotificacoes" component={TelaTesteNotificacoes} options={{ title: 'Teste Notificacoes' }} />
       </Stack.Navigator>
       <StatusBar style="light" />
     </NavigationContainer>

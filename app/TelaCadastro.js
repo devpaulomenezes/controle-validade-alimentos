@@ -13,9 +13,9 @@ import {
 } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import Produto from '../data/Produto';
+import repositorio from '../data/JsonProdutoRepository';
 import CameraService from '../services/CameraService';
-// MOCK: trocado pelo JsonProdutoRepository real na issue #10.
-import repositorio, { gerarIdMock } from '../mocks/MockProdutoRepository';
+import NotificacoesService from '../services/NotificacoesService';
 import { cores, espacamento, raio, fonte, estilosBase } from '../components/theme';
 import { formatarDataBR, dataParaIso, isoParaData } from '../components/formatoData';
 
@@ -36,6 +36,25 @@ function validar({ nome, quantidade, dataDeValidade }) {
   return erros;
 }
 
+/**
+ * Pergunta se o produto deve ser salvo sem foto quando a cópia da foto para
+ * a pasta do app falhou (CameraService.persistirFoto devolveu null).
+ * @returns {Promise<boolean>} true = salvar sem foto.
+ */
+function confirmarSalvarSemFoto() {
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Foto não salva',
+      'Não foi possível guardar a foto no aparelho. Deseja salvar o produto sem foto?',
+      [
+        { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Salvar sem foto', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) }
+    );
+  });
+}
+
 export default function TelaCadastro({ navigation }) {
   const [nome, setNome] = useState('');
   const [quantidade, setQuantidade] = useState('');
@@ -50,6 +69,11 @@ export default function TelaCadastro({ navigation }) {
 
   function limparErro(campo) {
     setErros((atuais) => ({ ...atuais, [campo]: undefined }));
+  }
+
+  function liberarSalvar() {
+    salvandoRef.current = false;
+    setSalvando(false);
   }
 
   function selecionarData(data) {
@@ -108,25 +132,31 @@ export default function TelaCadastro({ navigation }) {
     setSalvando(true);
     try {
       const fotoPersistida = fotoUri ? await CameraService.persistirFoto(fotoUri) : null;
+      if (fotoUri && !fotoPersistida && !(await confirmarSalvarSemFoto())) {
+        liberarSalvar();
+        return;
+      }
 
+      // id e dataDeCadastro são gerados pelo repositório.
       const produto = new Produto({
-        id: gerarIdMock(),
+        id: null,
         nome: nome.trim(),
         quantidade: Number(quantidade),
         dataDeValidade,
         fotoUri: fotoPersistida,
-        dataDeCadastro: new Date().toISOString(),
+        dataDeCadastro: null,
       });
 
       await repositorio.salvar(produto);
+      // Alerta local 3 dias antes do vencimento (#12); o serviço trata as próprias falhas.
+      await NotificacoesService.agendarAlerta(produto);
       // Sucesso: o botão continua desabilitado; a tela fecha no OK do alerta.
       Alert.alert('Produto salvo', `"${produto.nome}" foi cadastrado com sucesso.`, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (erro) {
       console.error('[TelaCadastro] erro ao salvar produto:', erro);
-      salvandoRef.current = false;
-      setSalvando(false);
+      liberarSalvar();
       Alert.alert('Erro ao salvar', 'Não foi possível salvar o produto. Tente novamente.');
     }
   }

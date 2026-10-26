@@ -15,10 +15,9 @@ import ProdutoCard from '../components/ProdutoCard';
 import EmptyState from '../components/EmptyState';
 import PainelDashboard from '../components/PainelDashboard';
 import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../components/theme';
-// MOCKS: trocados pelo JsonProdutoRepository (#3) e pelos serviços reais (#4 e #5)
-// assim que eles estiverem na dev; é a parte que falta da issue #10.
-import repositorio from '../mocks/MockProdutoRepository';
-import { classificarSituacao, ordenarPorValidade, resumirProdutos } from '../mocks/servicosMock';
+import repositorio from '../data/JsonProdutoRepository';
+import { classificarSituacao } from '../services/ServicoValidade';
+import { ordenarPorValidade, resumirProdutos } from '../services/ServicoDashboard';
 
 const FILTROS = [
   { chave: 'todas', rotulo: 'Todas' },
@@ -49,27 +48,9 @@ export default function TelaInicial({ navigation }) {
   const [filtro, setFiltro] = useState('todas');
 
   const abrirCadastro = useCallback(() => navigation.navigate('Cadastro'), [navigation]);
-  const abrirMenuTestes = useCallback(() => {
-    Alert.alert('Recursos do Dispositivo', 'Selecione a tela de teste desejada:', [
-      { text: 'Câmera (Issue #11)', onPress: () => navigation.navigate('TesteCamera') },
-      { text: 'Notificações (Issue #12)', onPress: () => navigation.navigate('TesteNotificacoes') },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
-  }, [navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerLeft: () => (
-        <TouchableOpacity
-          onPress={abrirMenuTestes}
-          accessibilityRole="button"
-          accessibilityLabel="Menu de testes"
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={styles.areaBotaoCabecalho}
-        >
-          <Text style={styles.botaoCabecalho}>Testes</Text>
-        </TouchableOpacity>
-      ),
       headerRight: () => (
         <TouchableOpacity
           onPress={abrirCadastro}
@@ -82,7 +63,7 @@ export default function TelaInicial({ navigation }) {
         </TouchableOpacity>
       ),
     });
-  }, [navigation, abrirCadastro, abrirMenuTestes]);
+  }, [navigation, abrirCadastro]);
 
   // Recarrega sempre que a tela ganha foco (ex.: ao voltar do cadastro).
   useFocusEffect(

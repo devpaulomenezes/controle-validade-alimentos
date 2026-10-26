@@ -1,4 +1,4 @@
-import React, { useState, useEffect} from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { cores, situacoes, espacamento, raio, fonte } from './theme';
 import { formatarDataBR } from './formatoData';
@@ -7,7 +7,7 @@ import { formatarDataBR } from './formatoData';
  * Cartão de um produto na listagem.
  *
  * O cartão NÃO calcula datas: a situação chega pronta (calculada pelo
- * ServicoValidade, ou pelo mock enquanto ele não está integrado).
+ * ServicoValidade).
  *
  * @param {Object} props
  * @param {import('../data/Produto').default} props.produto - Produto do contrato da issue #1.
@@ -15,15 +15,12 @@ import { formatarDataBR } from './formatoData';
  * @param {(produto) => void} [props.onRemover] - Quando informado, mostra o botão "Remover".
  */
 export default function ProdutoCard({ produto, situacao, onRemover }) {
-  const [erroImagem, setErroImagem] = useState(false);
-
-  useEffect(() => {
-    setErroImagem(false);
-  }, [produto.fotoUri]);
-
+  // Guarda a URI que falhou (e não um booleano): quando a foto muda, a nova
+  // URI é diferente da que falhou e volta a ser exibida, sem precisar de efeito.
+  const [uriComErro, setUriComErro] = useState(null);
   const estiloSituacao = situacoes[situacao];
   const corDestaque = estiloSituacao ? estiloSituacao.cor : cores.borda;
-  const temFoto = Boolean(produto.fotoUri) && !erroImagem;
+  const temFoto = Boolean(produto.fotoUri) && produto.fotoUri !== uriComErro;
 
   return (
     <View style={[styles.card, { borderLeftColor: corDestaque }]}>
@@ -31,7 +28,7 @@ export default function ProdutoCard({ produto, situacao, onRemover }) {
         <Image
           source={{ uri: produto.fotoUri }}
           style={styles.foto}
-          onError={() => setErroImagem(true)}
+          onError={() => setUriComErro(produto.fotoUri)}
         />
       ) : (
         <View style={[styles.foto, styles.placeholder]}>

@@ -37,7 +37,7 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
 
 ## Contrato de dados (acordado na issue #1)
 
-O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente, usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`) será feita na issue #3.
+O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente, usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`) foi concluída na issue #3 — ver seção abaixo.
 
 **Modelo `Produto`:**
 - `id`: Identificador único do produto.
@@ -54,13 +54,75 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 - `remover(id)`: Remove um produto pelo seu ID.
 - `buscarPorId(id)`: Retorna um produto específico pelo ID.
 
+## Dados: JsonProdutoRepository (issue #3)
+
+- **`data/JsonProdutoRepository.js`**: primeira implementação real do contrato
+  `ProdutoRepository` (#1), estendendo a classe da interface.
+- **Singleton**: `export default new JsonProdutoRepository()`.
+- **Persistência**: array de produtos serializado em `produtos.json`, na pasta de
+  documentos do app (`FileSystem.documentDirectory`); enquanto o arquivo não existe,
+  `listar()` devolve `[]`, e ele é criado na primeira gravação e relido a cada
+  operação. Os dados sobrevivem ao fechar e reabrir o app.
+- **FileSystem**: usa a mesma API do `CameraService` — `expo-file-system/legacy`
+  (`getInfoAsync`, `readAsStringAsync`, `writeAsStringAsync`), alinhada ao SDK 57.
+- **Id e data de cadastro**: `salvar()` gera `id` e `dataDeCadastro` (ISO) para
+  produtos que chegam sem eles — a tela de cadastro não gera nenhum dos dois (#10);
+  valores já informados são mantidos.
+- **`dataDeValidade`**: persiste exatamente como string ISO (`'YYYY-MM-DD'`), sem
+  conversão de data — decisão do contrato da #1.
+- **Erros de leitura/escrita**: capturados com mensagem clara no console
+  (`[JsonProdutoRepository] ...`), sem travar o app; leitura com problema trata a
+  base como vazia e escrita com falha fica registrada no console.
+- **Usado pelas telas** `TelaInicial` e `TelaCadastro` desde a issue #10.
+
+## Regras de vencimento: ServicoValidade (issue #4)
+
+- **`services/ServicoValidade.js`**: regras de vencimento centralizadas na
+  camada de serviços — nenhuma tela calcula datas. Serviço puro: recebe o
+  `Produto` como parâmetro e não acessa repositório.
+- **`calcularDiasRestantes(dataDeValidade)`**: diferença em dias inteiros entre
+  a validade e hoje, considerando apenas a DATA (ignora hora) e sem deslocamento
+  de fuso — parse local via `isoParaData` (formatoData), nunca
+  `new Date('YYYY-MM-DD')` (UTC) nem `toISOString()`.
+- **`classificarSituacao(produto)`**: `vencido` (dias < 0), `venceEstaSemana`
+  (0 a 7 dias, inclusive hoje), `venceEsteMes` (8 a 30 dias) e `ok` (mais de
+  30 dias); as cores das situações (theme da #7) usam essas chaves.
+- **Tela de teste temporária** (`TelaTesteServicoValidade`): exibiu os
+  casos-limite (ontem, hoje, +7, +8 e +35 dias) com dias restantes e situação
+  calculados pelo serviço; removida na #10 junto com os mocks.
+- **Uso**: desde a #10 é a única fonte do cálculo de datas — usado pela
+  `TelaInicial`, pelo `ServicoDashboard` e pelo `NotificacoesService`.
+
+## Agregações do dashboard: ServicoDashboard (issue #5)
+
+- **`services/ServicoDashboard.js`**: agregações do dashboard centralizadas
+  na camada de serviços — nenhuma tela agrega dados. Serviço puro: recebe
+  os produtos como parâmetro e não acessa repositório.
+- **`resumirProdutos(produtos)`**: retorna `{ total, vencidos,
+  venceEstaSemana, venceEsteMes, ok }`; a classificação de cada produto é
+  delegada ao `classificarSituacao` do ServicoValidade (nenhum cálculo de
+  data duplicado), então a soma dos quatro contadores é sempre igual ao
+  `total`. O contador de `vencido` se chama `vencidos` (com S), nome que o
+  `PainelDashboard` usa.
+- **`ordenarPorValidade(produtos)`**: nova lista ordenada pela validade mais
+  próxima (compara as strings `'YYYY-MM-DD'`, que em ordem alfabética já
+  ficam em ordem cronológica); não altera a lista original.
+- **Validação**: a tela de teste temporária da #4
+  (`TelaTesteServicoValidade`) foi estendida com uma seção "Dashboard" que
+  exibia os 5 contadores, a soma dos contadores ao lado do total e a lista
+  ordenada — removida na #10 junto com os mocks.
+- **Uso**: alimenta a ordenação da listagem e o `PainelDashboard` da
+  `TelaInicial` desde a #10.
+
 ## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
-    components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, formatoData.js)
-    services/      → ServicoValidade, ServicoDashboard, NotificacoesService, CameraService
-    data/          → ProdutoRepository (interface) + JsonProdutoRepository (Etapa 1)
-    mocks/         → mocks TEMPORÁRIOS do bloco de interface (removidos na issue #10)
+    components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, PainelDashboard.js, formatoData.js)
+    services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
+    data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
+    __tests__/     → testes unitários (issue #6) e de integração (issue #14) com Jest
+
+A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi removida na issue #10.
 
 ## Interface: tema e componentes (issue #7)
 
@@ -84,10 +146,10 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   **local** — sem `toISOString()`, que converte para UTC e pode adiantar um dia à noite.
 - **Validação** (mensagens em português): nome obrigatório, quantidade inteira maior que zero e
   data obrigatória. Datas passadas são aceitas (o produto pode já estar vencido).
-- Ao salvar, cria um `Produto` do contrato (id e `dataDeCadastro` gerados localmente),
-  grava no **mock em memória** (`mocks/MockProdutoRepository`, que segue a interface
-  `ProdutoRepository`), mostra "Produto salvo" e volta à tela inicial. O produto salvo
-  aparece no console do Metro. A persistência real entra na issue #10.
+- Ao salvar, cria um `Produto` do contrato e grava no **`JsonProdutoRepository`** (#3), que gera
+  `id` e `dataDeCadastro`; agenda o alerta de vencimento (`NotificacoesService.agendarAlerta`,
+  #12), mostra "Produto salvo" e volta à tela inicial. Até a #10 o cadastro gravava num
+  repositório mock em memória.
 
 ## Interface: tela de listagem (issue #9)
 
@@ -98,26 +160,30 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 - **Filtro por situação**: Todas / Vencidos / Vencem esta semana / Vencem este mês / Ok.
 - **EmptyState** quando não há produtos (com botão para cadastrar) e quando a busca ou o filtro
   não encontram nada. Botão "+ Novo" no cabeçalho para abrir o cadastro.
-- A tela **não calcula datas**: a situação e a ordenação vêm de `mocks/servicosMock.js`, que tem
-  as mesmas assinaturas do `ServicoValidade.classificarSituacao` (#4) e do
-  `ServicoDashboard.ordenarPorValidade` (#5). Na #10 basta trocar os imports pelos serviços reais.
-- **Dados mock:** `mocks/produtosMock.js` traz 9 produtos com validades relativas a hoje (todas as
-  situações e vários "Leite ..." para a busca). Para ver o EmptyState, troque
-  `SEMEAR_DADOS_MOCK` para `false` em `mocks/MockProdutoRepository.js`.
+- A tela **não calcula datas**: a situação vem de `ServicoValidade.classificarSituacao` (#4) e a
+  ordenação de `ServicoDashboard.ordenarPorValidade` (#5). Os produtos vêm do
+  `JsonProdutoRepository` (#3); na primeira execução a lista está vazia e aparece o EmptyState.
+  Até a #10 a listagem usava produtos e serviços mock com as mesmas assinaturas.
 
-## Interface: dashboard e remoção de produto (issue #10 — parte visual)
+## Interface: dashboard, remoção e integração com os dados (issue #10)
 
 - **Painel no topo da tela inicial** (`components/PainelDashboard.js`): destaque em âmbar com a
   quantidade de produtos que **vencem esta semana** e contadores de vencidos, deste mês e do total.
   Tocar num contador aplica o filtro correspondente da listagem (o total volta para "Todas").
-- Os números vêm de `resumirProdutos(produtos)`, com a assinatura do `ServicoDashboard` (#5):
-  `{ total, vencidos, venceEstaSemana, venceEsteMes, ok }`. A classificação é delegada a
-  `classificarSituacao`, então a soma dos contadores é sempre igual ao total.
+- Os números vêm de `ServicoDashboard.resumirProdutos(produtos)` (#5):
+  `{ total, vencidos, venceEstaSemana, venceEsteMes, ok }`. A classificação é delegada ao
+  `ServicoValidade`, então a soma dos contadores é sempre igual ao total.
 - **Remoção de produto**: botão "Remover" em cada cartão, com confirmação; chama `remover(id)` do
-  repositório e recarrega a lista e o painel.
-- **Pendente** (depende da #3 e da #5): trocar `mocks/MockProdutoRepository` pelo
-  `JsonProdutoRepository` e `mocks/servicosMock` pelos serviços reais em `TelaInicial` e
-  `TelaCadastro`, remover a pasta `mocks/` e validar a persistência fechando e reabrindo o app.
+  `JsonProdutoRepository` e recarrega a lista e o painel.
+- **Sem mocks no fluxo principal**: `TelaInicial` e `TelaCadastro` usam o `JsonProdutoRepository`
+  (#3), o `ServicoValidade` (#4) e o `ServicoDashboard` (#5). A pasta `mocks/` e a tela de teste
+  temporária `TelaTesteServicoValidade` foram removidas.
+- **Cálculo de datas em um só lugar**: o `NotificacoesService` (#12) passou a usar o
+  `calcularDiasRestantes` do `ServicoValidade` em vez de uma cópia própria.
+- **Alerta ao cadastrar**: ao salvar, o cadastro chama `NotificacoesService.agendarAlerta(produto)`,
+  que agenda o aviso 3 dias antes do vencimento (ou dispara na hora, se faltar menos que isso).
+- **Falha na cópia da foto**: se `CameraService.persistirFoto` não conseguir copiar a foto, o
+  cadastro pergunta se o produto deve ser salvo sem foto, em vez de salvar sem ela em silêncio.
 
 ## Recursos do dispositivo: câmera e galeria (issue #11)
 
@@ -128,9 +194,8 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   - Cancelamento gracioso: fechar câmera ou galeria retorna `null` sem quebrar o fluxo nem gerar erro.
   - Retorna string com a URI local da imagem, atendendo ao campo `fotoUri` do contrato `Produto` (#1).
 - **Tela de teste temporária (`TelaTesteCamera.js`)**:
-  - Validação isolada com botões "Tirar foto" e "Escolher da galeria".
-  - Exibe a imagem capturada e a URI retornada, com botão para limpar.
-  - Acessível pelo menu "🧪 Testes" no cabeçalho da `TelaInicial`.
+  - Usada na #11 para validação isolada, com botões "Tirar foto" e "Escolher da galeria".
+  - Removida na #14, quando o fluxo real do cadastro passou a ser validado de ponta a ponta.
 
 ## Recursos do dispositivo: notificações locais (issue #12)
 
@@ -141,22 +206,40 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   - Mensagens em português adaptadas ("venceu há X dias!", "vence hoje!", "vence amanhã!", "vence em X dias!").
   - Trata permissões com aviso claro e link para as configurações do sistema (`Linking.openSettings()`).
   - Funções auxiliares `listarAgendadas()` e `cancelarTodas()`.
+  - Dias restantes calculados pelo `ServicoValidade` (#4) desde a #10; o `agendarAlerta` é chamado pela `TelaCadastro` ao salvar cada produto.
 - **Tela de teste temporária (`TelaTesteNotificacoes.js`)**:
-  - Botões para agendar 3 cenários de teste: "Vence amanhã" (alerta imediato), "Já vencido" (alerta imediato) e "Com folga" (agenda para o futuro).
-  - Listagem dos agendamentos ativos no sistema com opção de cancelamento em massa.
-  - Acessível pelo menu "🧪 Testes" no cabeçalho da `TelaInicial`.
+  - Usada na #12 para agendar 3 cenários ("Vence amanhã", "Já vencido" e "Com folga") e listar/cancelar os agendamentos.
+  - Removida na #14, quando o alerta ao cadastrar passou a ser validado no fluxo real.
 
 ## Recursos do dispositivo: integração da foto no fluxo do app (issue #13)
 
 - **Persistência de imagens (`CameraService.persistirFoto`)**:
   - Salva as fotos temporárias da câmera e da galeria na pasta permanente de documentos do aplicativo (`FileSystem.documentDirectory/fotos/`), impedindo perda de dados quando o sistema operacional limpa o cache do aparelho.
 - **Tela de cadastro (`TelaCadastro.js`)**:
-  - Botão "📷 Adicionar foto" integrado ao formulário, permitindo escolher entre capturar pela câmera ou escolher da galeria via `CameraService`.
-  - Exibição da pré-visualização da imagem com opção de alterar ou remover foto.
-  - Gravação do produto com a URI persistente no campo `fotoUri` ou `null` quando salvo sem foto.
+  - Botão "Adicionar foto" integrado ao formulário, permitindo escolher entre capturar pela câmera ou escolher da galeria via `CameraService`.
+  - Exibição da pré-visualização da imagem com os botões "Trocar foto" e "Remover foto".
+  - Gravação do produto com a URI persistente no campo `fotoUri` ou `null` quando salvo sem foto; se a cópia da foto falhar, o usuário escolhe se salva sem foto (#10).
 - **Cartão do produto (`ProdutoCard.js`)**:
   - Exibe a foto persistida do produto quando `fotoUri` estiver definido.
   - Exibe placeholder estilizado com ícone `🥫` quando o produto for cadastrado sem foto ou em caso de falha no carregamento (`onError`).
+
+## Validação final da Etapa 1 (issue #14)
+
+- **Testes de integração** (`__tests__/IntegracaoEtapa1.test.js`): exercitam `JsonProdutoRepository`,
+  `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`
+  em conjunto, com o cenário de 5 produtos (1 vencido, 2 vencendo esta semana — um com foto e um sem —,
+  1 vencendo este mês e 1 ok). Conferem a persistência em `produtos.json`, a foto persistida, a ordenação
+  por validade, a classificação, os contadores do dashboard antes e depois de uma remoção e os alertas
+  (imediato para quem vence em até 3 dias, agendado para quem tem folga).
+- **Validação manual no Expo Go (SDK 57, Android)** — resultado: **sem erros**.
+  - Cadastro com foto pela câmera, salvamento e persistência em `produtos.json`.
+  - Listagem ordenada por validade, busca por nome e filtro por situação.
+  - Painel do dashboard com os contadores corretos para os 5 produtos e atualização ao remover.
+  - Notificação local ao cadastrar produto vencendo em menos de 3 dias.
+  - Foto e produtos continuam visíveis após fechar e reabrir o app.
+- **Limpeza**: as telas de teste temporárias (`TelaTesteCamera` e `TelaTesteNotificacoes`), suas rotas no
+  `App.js` e o botão "Testes" do cabeçalho foram removidos; o fluxo real cobre as duas validações.
+- **Testes unitários da #6** continuam passando após as integrações (`npx jest`).
 
 ## Fluxo de trabalho Git (regra do grupo)
 
@@ -191,10 +274,22 @@ Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
 
 ## Como executar
 
-    npm install\
+    npm install
     npx expo start
 
 Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
+
+## Testes
+
+Testes unitários e de integração executados com **Jest** utilizando o preset **`jest-expo`**.
+
+    npm test
+    # ou
+    npx jest
+
+- **`ServicoValidade` (`__tests__/ServicoValidade.test.js`)**: testes das funções `calcularDiasRestantes` (passado, hoje e futuro) e `classificarSituacao` cobrindo todos os casos-limite da issue #4 (`vencido`, `venceEstaSemana`, `venceEsteMes` e `ok`).
+- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`.
+- **`IntegracaoEtapa1` (`__tests__/IntegracaoEtapa1.test.js`)**: testes de integração da Etapa 1 (issue #14) verificando as peças funcionando em conjunto (`JsonProdutoRepository`, `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`) no cenário completo de 5 produtos.
 
 ## Histórico de decisões
 
@@ -223,3 +318,27 @@ Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 - 2026-10-14 — Issue #10, parte visual: painel do dashboard "vencendo esta semana" e remoção de
   produto na tela inicial, ainda via mock; a troca pelo repositório e pelos serviços reais aguarda
   as issues #3 e #5. Alerta de foto do cadastro ajustado ao limite de 3 botões do Android.
+- 2026-10-23 — Issue #3 concluída: `JsonProdutoRepository` (CRUD real em JSON via
+  `expo-file-system/legacy`, arquivo `produtos.json` no documentDirectory, id
+  gerado pelo repositório quando ausente, erros de leitura/escrita tratados no
+  console). Telas seguem no mock até a #10.
+- 2026-10-23 — Issue #4 concluída: `ServicoValidade` com
+  `calcularDiasRestantes` e `classificarSituacao` (faixas vencido / esta
+  semana / este mês / ok, iguais ao mock), cálculo só-data sem fuso e tela de
+  teste temporária com os casos-limite. Telas seguem no mock até a #10.
+- 2026-10-24 — Issue #5 concluída: `ServicoDashboard` com `resumirProdutos`
+  (5 contadores, classificação delegada ao ServicoValidade, soma sempre
+  igual ao total) e `ordenarPorValidade` (lista nova, sem mutar a original),
+  semântica idêntica ao mock. Tela de teste temporária estendida com a
+  seção "Dashboard". Telas seguem no mock até a #10.
+- 2026-10-24 — Issue #6 concluída: configuração do Jest/jest-expo e testes unitários do bloco de dados (issue #6).
+- 2026-10-24 — Issue #10 concluída: telas integradas ao `JsonProdutoRepository`, ao
+  `ServicoValidade` e ao `ServicoDashboard`; `id` e `dataDeCadastro` gerados pelo repositório;
+  alerta de vencimento agendado ao salvar; aviso quando a cópia da foto falha;
+  `NotificacoesService` usando o cálculo de datas do `ServicoValidade`; pasta `mocks/` e
+  `TelaTesteServicoValidade` removidas.
+- 2026-10-24 — Issue #14 concluída (fim da Etapa 1): testes de integração com o cenário de 5
+  produtos (`__tests__/IntegracaoEtapa1.test.js`), validação manual de ponta a ponta no Expo Go
+  (SDK 57) sem erros e remoção das telas de teste temporárias `TelaTesteCamera` e
+  `TelaTesteNotificacoes`, de suas rotas e do botão "Testes" do cabeçalho.
+
