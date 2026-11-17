@@ -102,7 +102,15 @@ A persistência usa `expo-file-system` com um arquivo `produtos.json` e a pasta 
 - O `JsonProdutoRepository` implementa o contrato `ProdutoRepository`, então trocar a persistência
   pela API remota (Etapa 2) não exige alterar as telas.
 
-[Ajuste este texto com as palavras do grupo antes da entrega.]
+Escolhemos o expo-file-system para guardar os dados em um arquivo produtos.json na pasta de documentos do aplicativo, e não o AsyncStorage ou o SQLite, pelos motivos a seguir.
+
+O domínio do app tem uma única entidade, o Produto, com poucos campos e sem relacionamentos. Um array serializado em JSON atende ao volume esperado de itens de uma despensa doméstica, e as operações de listagem, busca e ordenação são feitas em memória pelos serviços. Um banco relacional como o SQLite traria esquema, migrações e consultas que, nesse caso, não resolvem um problema real.
+
+As fotos dos produtos já precisavam ser gravadas em disco, na pasta fotos/, para não se perderem quando o sistema limpa o cache. Usar a mesma API de arquivos para os dados mantém uma única forma de acesso ao armazenamento do dispositivo.
+
+O acesso aos dados fica encapsulado no JsonProdutoRepository, que implementa a interface ProdutoRepository. As telas não conhecem o formato do arquivo. Por isso, na Etapa 2, a persistência local pode ser trocada pela API remota sem alterar as telas, apenas criando outra implementação da mesma interface.
+
+Os dados sobrevivem ao fechamento e à reabertura do aplicativo, o que foi validado no teste manual no Expo Go.
 
 ## Regras de vencimento: ServicoValidade (issue #4)
 
