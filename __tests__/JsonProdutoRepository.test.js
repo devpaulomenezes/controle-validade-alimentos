@@ -1,8 +1,9 @@
-/* global describe, it, expect, beforeEach, jest */
+/* global describe, it, expect, beforeEach, afterEach, jest */
 /**
- * Testes unitários para JsonProdutoRepository (Issue #6).
+ * Testes unitários para JsonProdutoRepository (Issue #6, ampliados na issue #19).
  * Valida a persistência em JSON simulando o módulo expo-file-system/legacy em memória.
  */
+import * as FileSystem from 'expo-file-system/legacy';
 import repositorio from '../data/JsonProdutoRepository';
 
 import Produto from '../data/Produto';
@@ -127,5 +128,182 @@ describe('JsonProdutoRepository', () => {
     expect(produtoSalvo.id).toBeTruthy();
     expect(typeof produtoSalvo.dataDeCadastro).toBe('string');
     expect(Number.isNaN(Date.parse(produtoSalvo.dataDeCadastro))).toBe(false);
+  });
+
+  it('salvar() deve devolver o produto gravado, com o id gerado', async () => {
+    const salvo = await repositorio.salvar(
+      new Produto({
+        id: null,
+        nome: 'Manteiga',
+        quantidade: 1,
+        dataDeValidade: '2026-12-01',
+        fotoUri: null,
+        dataDeCadastro: null,
+      })
+    );
+
+    const [persistido] = await repositorio.listar();
+    expect(salvo.id).toBeTruthy();
+    expect(salvo.id).toBe(persistido.id);
+  });
+
+  describe('atualizar (issue #19)', () => {
+    async function semear() {
+      const nomes = ['Leite', 'Arroz', 'Queijo'];
+      for (const [i, nome] of nomes.entries()) {
+        await repositorio.salvar(
+          new Produto({
+            id: `id-${i}`,
+            nome,
+            quantidade: i + 1,
+            dataDeValidade: '2026-12-01',
+            fotoUri: null,
+            dataDeCadastro: `2026-10-0${i + 1}`,
+          })
+        );
+      }
+    }
+
+    it('deve substituir o produto pelo id, manter o total de registros e preservar dataDeCadastro', async () => {
+      await semear();
+
+      await repositorio.atualizar(
+        new Produto({
+          id: 'id-1',
+          nome: 'Arroz Integral',
+          quantidade: 9,
+          dataDeValidade: '2027-01-15',
+          fotoUri: null,
+          dataDeCadastro: '2026-10-02',
+        })
+      );
+
+      const produtos = await repositorio.listar();
+      expect(produtos).toHaveLength(3);
+      const editado = produtos.find((p) => p.id === 'id-1');
+      expect(editado.nome).toBe('Arroz Integral');
+      expect(editado.quantidade).toBe(9);
+      expect(editado.dataDeValidade).toBe('2027-01-15');
+      expect(editado.dataDeCadastro).toBe('2026-10-02');
+      // Os demais registros ficam intactos.
+      expect(produtos.find((p) => p.id === 'id-0').nome).toBe('Leite');
+      expect(produtos.find((p) => p.id === 'id-2').nome).toBe('Queijo');
+    });
+
+    it('deve lançar erro quando o id não existir e não alterar a base', async () => {
+      await semear();
+      const antes = armazenamento['/documentos-teste/produtos.json'];
+
+      await expect(
+        repositorio.atualizar(
+          new Produto({
+            id: 'inexistente',
+            nome: 'Fantasma',
+            quantidade: 1,
+            dataDeValidade: '2026-12-01',
+            fotoUri: null,
+            dataDeCadastro: '2026-10-01',
+          })
+        )
+      ).rejects.toThrow(/não encontrado/);
+
+      expect(armazenamento['/documentos-teste/produtos.json']).toBe(antes);
+    });
+  });
+
+  describe('robustez da persistência (issue #19)', () => {
+    const CAMINHO = '/documentos-teste/produtos.json';
+    let consoleErro;
+
+    beforeEach(() => {
+      // Os erros esperados são registrados no console pelo repositório.
+      consoleErro = jest.spyOn(console, 'error').mockImplementation(() => {});
+      FileSystem.writeAsStringAsync.mockClear();
+    });
+
+    afterEach(() => {
+      consoleErro.mockRestore();
+    });
+
+    it('listar() deve lançar erro explícito (e não retornar []) quando o arquivo existe com JSON inválido', async () => {
+      armazenamento[CAMINHO] = '{ isto não é json';
+
+      await expect(repositorio.listar()).rejects.toThrow(/Não foi possível ler a base de produtos/);
+    });
+
+    it('listar() deve lançar erro explícito quando o arquivo existe mas a leitura falha', async () => {
+      armazenamento[CAMINHO] = '[]';
+      FileSystem.readAsStringAsync.mockRejectedValueOnce(new Error('falha de I/O'));
+
+      await expect(repositorio.listar()).rejects.toThrow(/Não foi possível ler a base de produtos/);
+    });
+
+    it('falha de escrita (#gravar) deve propagar a exceção para salvar()', async () => {
+      FileSystem.writeAsStringAsync.mockRejectedValueOnce(new Error('disco cheio'));
+
+      await expect(
+        repositorio.salvar(
+          new Produto({
+            id: null,
+            nome: 'Sem espaço',
+            quantidade: 1,
+            dataDeValidade: '2026-12-01',
+            fotoUri: null,
+            dataDeCadastro: null,
+          })
+        )
+      ).rejects.toThrow('disco cheio');
+    });
+
+    it('falha de escrita deve propagar também em atualizar() e remover()', async () => {
+      await repositorio.salvar(
+        new Produto({
+          id: 'x1',
+          nome: 'Item',
+          quantidade: 1,
+          dataDeValidade: '2026-12-01',
+          fotoUri: null,
+          dataDeCadastro: '2026-10-01',
+        })
+      );
+
+      FileSystem.writeAsStringAsync.mockRejectedValueOnce(new Error('falha 1'));
+      await expect(
+        repositorio.atualizar(
+          new Produto({
+            id: 'x1',
+            nome: 'Item 2',
+            quantidade: 1,
+            dataDeValidade: '2026-12-01',
+            fotoUri: null,
+            dataDeCadastro: '2026-10-01',
+          })
+        )
+      ).rejects.toThrow('falha 1');
+
+      FileSystem.writeAsStringAsync.mockRejectedValueOnce(new Error('falha 2'));
+      await expect(repositorio.remover('x1')).rejects.toThrow('falha 2');
+    });
+
+    it('salvar() NÃO deve sobrescrever a base quando listar() falha', async () => {
+      const baseCorrompida = '[{"id":"a","nome":"Leite"';
+      armazenamento[CAMINHO] = baseCorrompida;
+
+      await expect(
+        repositorio.salvar(
+          new Produto({
+            id: null,
+            nome: 'Novo',
+            quantidade: 1,
+            dataDeValidade: '2026-12-01',
+            fotoUri: null,
+            dataDeCadastro: null,
+          })
+        )
+      ).rejects.toThrow(/Não foi possível ler a base de produtos/);
+
+      expect(FileSystem.writeAsStringAsync).not.toHaveBeenCalled();
+      expect(armazenamento[CAMINHO]).toBe(baseCorrompida);
+    });
   });
 });

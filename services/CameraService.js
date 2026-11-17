@@ -52,6 +52,30 @@ export default class CameraService {
     }
   }
 
+  /**
+   * Apaga do disco uma foto persistida pelo app. Só apaga se a URI estiver
+   * dentro de FileSystem.documentDirectory/fotos/ (a mesma pasta de
+   * persistirFoto); qualquer outra URI (ex.: foto da galeria) é preservada.
+   * Falhas ao apagar são registradas e não lançam exceção.
+   * @param {string|null} uri - URI da foto a apagar.
+   * @returns {Promise<boolean>} true se a exclusão foi solicitada com sucesso.
+   */
+  static async removerFoto(uri) {
+    if (!uri) return false;
+    const pastaFotos = `${FileSystem.documentDirectory}fotos/`;
+    if (!uri.startsWith(pastaFotos) || uri.includes('..')) {
+      console.log(`[CameraService] foto fora da pasta do app não foi apagada: ${uri}`);
+      return false;
+    }
+    try {
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+      return true;
+    } catch (erro) {
+      console.error('[CameraService] falha ao apagar foto:', erro);
+      return false;
+    }
+  }
+
   static async #capturar({ pedirPermissao, abrir, recurso }) {
     try {
       const permissao = await pedirPermissao();

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -55,17 +55,28 @@ function confirmarSalvarSemFoto() {
   });
 }
 
-export default function TelaCadastro({ navigation }) {
-  const [nome, setNome] = useState('');
-  const [quantidade, setQuantidade] = useState('');
-  const [dataDeValidade, setDataDeValidade] = useState(null); // 'YYYY-MM-DD'
-  const [fotoUri, setFotoUri] = useState(null);
+export default function TelaCadastro({ navigation, route }) {
+  // Modo edição quando chega um produto em route.params; senão, modo criação.
+  const produtoEdicao = route?.params?.produto ?? null;
+  const modoEdicao = Boolean(produtoEdicao?.id);
+  const fotoOriginal = produtoEdicao?.fotoUri ?? null;
+
+  const [nome, setNome] = useState(produtoEdicao?.nome ?? '');
+  const [quantidade, setQuantidade] = useState(
+    produtoEdicao ? String(produtoEdicao.quantidade ?? '') : ''
+  );
+  const [dataDeValidade, setDataDeValidade] = useState(produtoEdicao?.dataDeValidade ?? null); // 'YYYY-MM-DD'
+  const [fotoUri, setFotoUri] = useState(fotoOriginal);
   const [erros, setErros] = useState({});
   const [salvando, setSalvando] = useState(false);
   const [mostrarSeletorIOS, setMostrarSeletorIOS] = useState(false);
   const campoQuantidade = useRef(null);
   // Bloqueia um 2º toque rápido em Salvar antes de o estado "salvando" chegar ao botão.
   const salvandoRef = useRef(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: modoEdicao ? 'Editar produto' : 'Novo produto' });
+  }, [navigation, modoEdicao]);
 
   function limparErro(campo) {
     setErros((atuais) => ({ ...atuais, [campo]: undefined }));
@@ -122,6 +133,98 @@ export default function TelaCadastro({ navigation }) {
     );
   }
 
+  /** Mensagem do Alert de erro: usa a da exceção, com texto padrão se vier vazia. */
+  function mensagemDeErro(erro) {
+    return erro?.message || 'Não foi possível salvar o produto. Tente novamente.';
+  }
+
+  async function salvarCriacao() {
+    const fotoPersistida = fotoUri ? await CameraService.persistirFoto(fotoUri) : null;
+    if (fotoUri && !fotoPersistida && !(await confirmarSalvarSemFoto())) {
+      liberarSalvar();
+      return;
+    }
+
+    // id e dataDeCadastro são gerados pelo repositório.
+    const produto = new Produto({
+      id: null,
+      nome: nome.trim(),
+      quantidade: Number(quantidade),
+      dataDeValidade,
+      fotoUri: fotoPersistida,
+      dataDeCadastro: null,
+    });
+
+    // fotoPersistida só existe se a cópia foi feita NESTA tentativa (com "salvar sem foto" é null).
+    let salvo;
+    try {
+      salvo = await repositorio.salvar(produto);
+    } catch (erro) {
+      // Falha ao salvar: descarta só a cópia feita agora, para não deixar foto órfã.
+      if (fotoPersistida) {
+        await CameraService.removerFoto(fotoPersistida);
+      }
+      throw erro;
+    }
+    // Alerta local 3 dias antes do vencimento (#12); o serviço trata as próprias falhas.
+    // Usa o produto devolvido pelo repositório para o alerta levar o id real (produtoId).
+    await NotificacoesService.agendarAlerta(salvo ?? produto);
+    // Sucesso: o botão continua desabilitado; a tela fecha no OK do alerta.
+    Alert.alert('Produto salvo', `"${produto.nome}" foi cadastrado com sucesso.`, [
+      { text: 'OK', onPress: () => navigation.goBack() },
+    ]);
+  }
+
+  async function salvarEdicao() {
+    let fotoFinal = fotoUri;
+    // Cópia feita NESTA tentativa (só existe se a foto foi trocada).
+    let fotoNovaCopiada = null;
+    let produtoAtualizado;
+
+    try {
+      if (fotoUri && fotoUri !== fotoOriginal) {
+        const persistida = await CameraService.persistirFoto(fotoUri);
+        if (persistida) {
+          fotoNovaCopiada = persistida;
+          fotoFinal = persistida;
+        } else if (await confirmarSalvarSemFoto()) {
+          fotoFinal = null;
+        } else {
+          liberarSalvar();
+          return;
+        }
+      }
+
+      // Mantém id e dataDeCadastro ORIGINAIS; nunca chama salvar() na edição.
+      produtoAtualizado = new Produto({
+        id: produtoEdicao.id,
+        nome: nome.trim(),
+        quantidade: Number(quantidade),
+        dataDeValidade,
+        fotoUri: fotoFinal,
+        dataDeCadastro: produtoEdicao.dataDeCadastro,
+      });
+
+      await repositorio.atualizar(produtoAtualizado);
+    } catch (erro) {
+      // Falha ao atualizar: a base não mudou; descarta só a cópia nova desta
+      // tentativa (nunca a foto original).
+      if (fotoNovaCopiada && fotoNovaCopiada !== fotoOriginal) {
+        await CameraService.removerFoto(fotoNovaCopiada);
+      }
+      throw erro;
+    }
+
+    // Sucesso real: a base já foi atualizada. Apaga a foto antiga (trocada ou removida).
+    if (fotoOriginal && fotoOriginal !== fotoFinal) {
+      await CameraService.removerFoto(fotoOriginal);
+    }
+    // Reagenda sempre (mesmo com a mesma data) para não duplicar alertas.
+    await NotificacoesService.cancelarAlerta(produtoAtualizado.id);
+    await NotificacoesService.agendarAlerta(produtoAtualizado);
+    navigation.goBack();
+  }
+
   async function salvar() {
     if (salvandoRef.current) return;
     const novosErros = validar({ nome, quantidade, dataDeValidade });
@@ -131,33 +234,15 @@ export default function TelaCadastro({ navigation }) {
     salvandoRef.current = true;
     setSalvando(true);
     try {
-      const fotoPersistida = fotoUri ? await CameraService.persistirFoto(fotoUri) : null;
-      if (fotoUri && !fotoPersistida && !(await confirmarSalvarSemFoto())) {
-        liberarSalvar();
-        return;
+      if (modoEdicao) {
+        await salvarEdicao();
+      } else {
+        await salvarCriacao();
       }
-
-      // id e dataDeCadastro são gerados pelo repositório.
-      const produto = new Produto({
-        id: null,
-        nome: nome.trim(),
-        quantidade: Number(quantidade),
-        dataDeValidade,
-        fotoUri: fotoPersistida,
-        dataDeCadastro: null,
-      });
-
-      await repositorio.salvar(produto);
-      // Alerta local 3 dias antes do vencimento (#12); o serviço trata as próprias falhas.
-      await NotificacoesService.agendarAlerta(produto);
-      // Sucesso: o botão continua desabilitado; a tela fecha no OK do alerta.
-      Alert.alert('Produto salvo', `"${produto.nome}" foi cadastrado com sucesso.`, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
     } catch (erro) {
       console.error('[TelaCadastro] erro ao salvar produto:', erro);
       liberarSalvar();
-      Alert.alert('Erro ao salvar', 'Não foi possível salvar o produto. Tente novamente.');
+      Alert.alert('Erro ao salvar', mensagemDeErro(erro));
     }
   }
 

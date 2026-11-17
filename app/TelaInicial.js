@@ -18,6 +18,8 @@ import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../comp
 import repositorio from '../data/JsonProdutoRepository';
 import { classificarSituacao } from '../services/ServicoValidade';
 import { ordenarPorValidade, resumirProdutos } from '../services/ServicoDashboard';
+import NotificacoesService from '../services/NotificacoesService';
+import CameraService from '../services/CameraService';
 
 const FILTROS = [
   { chave: 'todas', rotulo: 'Todas' },
@@ -44,10 +46,30 @@ async function carregarItens() {
 export default function TelaInicial({ navigation }) {
   const [itens, setItens] = useState([]); // [{ produto, situacao }]
   const [carregando, setCarregando] = useState(true);
+  const [removendo, setRemovendo] = useState(false);
+  const [erroCarga, setErroCarga] = useState(null); // mensagem quando listar() falha
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('todas');
 
   const abrirCadastro = useCallback(() => navigation.navigate('Cadastro'), [navigation]);
+  const abrirDetalhe = useCallback(
+    (produto) => navigation.navigate('TelaDetalhe', { produtoId: produto.id }),
+    [navigation]
+  );
+  // Cópia simples: o React Navigation avisa sobre instâncias de classe nos params.
+  const abrirEdicao = useCallback(
+    (produto) => navigation.navigate('Cadastro', { produto: { ...produto } }),
+    [navigation]
+  );
+
+  /** Falha ao ler a base: avisa, mostra o estado de falha e NÃO grava nada. */
+  const tratarErroCarga = useCallback((erro) => {
+    console.error('[TelaInicial] erro ao carregar produtos:', erro);
+    const mensagem = erro?.message || 'Não foi possível carregar os produtos.';
+    setItens([]);
+    setErroCarga(mensagem);
+    Alert.alert('Erro ao carregar', mensagem);
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -71,36 +93,62 @@ export default function TelaInicial({ navigation }) {
       let ativo = true;
       carregarItens()
         .then((novos) => {
-          if (ativo) setItens(novos);
+          if (!ativo) return;
+          setItens(novos);
+          setErroCarga(null);
         })
-        .catch((erro) => console.error('[TelaInicial] erro ao carregar produtos:', erro))
+        .catch((erro) => {
+          if (ativo) tratarErroCarga(erro);
+        })
         .finally(() => {
           if (ativo) setCarregando(false);
         });
       return () => {
         ativo = false;
       };
-    }, [])
+    }, [tratarErroCarga])
   );
 
-  const confirmarRemocao = useCallback((produto) => {
-    Alert.alert('Remover produto', `Remover "${produto.nome}" da lista?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await repositorio.remover(produto.id);
-            setItens(await carregarItens());
-          } catch (erro) {
-            console.error('[TelaInicial] erro ao remover produto:', erro);
-            Alert.alert('Erro', 'Não foi possível remover o produto. Tente novamente.');
-          }
+  const confirmarRemocao = useCallback(
+    (produto) => {
+      Alert.alert('Remover produto', `Remover "${produto.nome}" da lista?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: async () => {
+            if (removendo) return;
+            setRemovendo(true);
+            try {
+              // Ordem obrigatória: 1) cancelar alerta, 2) remover do repositório,
+              // 3) apagar a foto (só se o 2 teve sucesso), 4) recarregar.
+              try {
+                await NotificacoesService.cancelarAlerta(produto.id);
+                await repositorio.remover(produto.id);
+              } catch (erro) {
+                console.error('[TelaInicial] erro ao remover produto:', erro);
+                Alert.alert(
+                  'Erro',
+                  erro?.message || 'Não foi possível remover o produto. Tente novamente.'
+                );
+                return;
+              }
+              await CameraService.removerFoto(produto.fotoUri);
+              try {
+                setItens(await carregarItens());
+                setErroCarga(null);
+              } catch (erro) {
+                tratarErroCarga(erro);
+              }
+            } finally {
+              setRemovendo(false);
+            }
+          },
         },
-      },
-    ]);
-  }, []);
+      ]);
+    },
+    [removendo, tratarErroCarga]
+  );
 
   const resumo = useMemo(() => resumirProdutos(itens.map(({ produto }) => produto)), [itens]);
 
@@ -116,6 +164,14 @@ export default function TelaInicial({ navigation }) {
     return (
       <View style={[estilosBase.tela, styles.centro]}>
         <ActivityIndicator size="large" color={cores.primaria} />
+      </View>
+    );
+  }
+
+  if (erroCarga) {
+    return (
+      <View style={[estilosBase.tela, styles.centro]}>
+        <EmptyState icone="⚠️" mensagem="Falha ao carregar os produtos" descricao={erroCarga} />
       </View>
     );
   }
@@ -170,7 +226,13 @@ export default function TelaInicial({ navigation }) {
         data={itensVisiveis}
         keyExtractor={({ produto }) => produto.id}
         renderItem={({ item }) => (
-          <ProdutoCard produto={item.produto} situacao={item.situacao} onRemover={confirmarRemocao} />
+          <ProdutoCard
+            produto={item.produto}
+            situacao={item.situacao}
+            onRemover={confirmarRemocao}
+            onPress={abrirDetalhe}
+            onEditar={abrirEdicao}
+          />
         )}
         contentContainerStyle={styles.lista}
         keyboardShouldPersistTaps="handled"
