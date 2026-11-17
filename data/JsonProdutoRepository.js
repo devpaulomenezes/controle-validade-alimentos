@@ -23,19 +23,30 @@ function interpretarConteudo(conteudo) {
 }
 
 class JsonProdutoRepository extends ProdutoRepository {
+  /**
+   * Arquivo inexistente (primeira execução) devolve []. Arquivo existente com
+   * erro de leitura ou JSON inválido LANÇA erro explícito — nunca devolve [],
+   * para que salvar() não sobrescreva a base existente.
+   */
   async listar() {
+    const info = await FileSystem.getInfoAsync(CAMINHO_ARQUIVO);
+    if (!info.exists) return [];
     try {
-      const info = await FileSystem.getInfoAsync(CAMINHO_ARQUIVO);
-      if (!info.exists) return [];
       const conteudo = await FileSystem.readAsStringAsync(CAMINHO_ARQUIVO);
       return interpretarConteudo(conteudo);
     } catch (erro) {
-      console.error('[JsonProdutoRepository] falha ao ler produtos.json — tratando a base como vazia:', erro);
-      return [];
+      console.error('[JsonProdutoRepository] falha ao ler produtos.json:', erro);
+      throw new Error(
+        'Não foi possível ler a base de produtos (produtos.json). Os dados existentes foram preservados.'
+      );
     }
   }
 
-  /** Gera id e dataDeCadastro quando o produto chega sem eles (a tela não gera). */
+  /**
+   * Gera id e dataDeCadastro quando o produto chega sem eles (a tela não gera).
+   * Devolve o produto efetivamente gravado (com o id gerado), para que quem
+   * chamou possa vincular o alerta de notificação ao id real (produtoId).
+   */
   async salvar(produto) {
     const novo = new Produto({
       ...produto,
@@ -45,6 +56,7 @@ class JsonProdutoRepository extends ProdutoRepository {
     const produtos = await this.listar();
     produtos.push(novo);
     await this.#gravar(produtos);
+    return novo;
   }
 
   async atualizar(produto) {
@@ -71,6 +83,7 @@ class JsonProdutoRepository extends ProdutoRepository {
       await FileSystem.writeAsStringAsync(CAMINHO_ARQUIVO, JSON.stringify(produtos));
     } catch (erro) {
       console.error('[JsonProdutoRepository] falha ao gravar produtos.json:', erro);
+      throw erro;
     }
   }
 }

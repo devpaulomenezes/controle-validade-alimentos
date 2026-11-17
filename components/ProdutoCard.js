@@ -13,8 +13,10 @@ import { formatarDataBR } from './formatoData';
  * @param {import('../data/Produto').default} props.produto - Produto do contrato da issue #1.
  * @param {'vencido'|'venceEstaSemana'|'venceEsteMes'|'ok'} props.situacao - Situação já classificada.
  * @param {(produto) => void} [props.onRemover] - Quando informado, mostra o botão "Remover".
+ * @param {(produto) => void} [props.onPress] - Chamado ao tocar no corpo do cartão (abre o detalhe).
+ * @param {(produto) => void} [props.onEditar] - Quando informado, mostra o botão "Editar".
  */
-export default function ProdutoCard({ produto, situacao, onRemover }) {
+export default function ProdutoCard({ produto, situacao, onRemover, onPress, onEditar }) {
   // Guarda a URI que falhou (e não um booleano): quando a foto muda, a nova
   // URI é diferente da que falhou e volta a ser exibida, sem precisar de efeito.
   const [uriComErro, setUriComErro] = useState(null);
@@ -22,44 +24,70 @@ export default function ProdutoCard({ produto, situacao, onRemover }) {
   const corDestaque = estiloSituacao ? estiloSituacao.cor : cores.borda;
   const temFoto = Boolean(produto.fotoUri) && produto.fotoUri !== uriComErro;
 
+  const Corpo = onPress ? TouchableOpacity : View;
+  const propsCorpo = onPress
+    ? {
+        onPress: () => onPress(produto),
+        accessibilityRole: 'button',
+        accessibilityLabel: `Ver detalhes de ${produto.nome}`,
+      }
+    : {};
+
   return (
     <View style={[styles.card, { borderLeftColor: corDestaque }]}>
-      {temFoto ? (
-        <Image
-          source={{ uri: produto.fotoUri }}
-          style={styles.foto}
-          onError={() => setUriComErro(produto.fotoUri)}
-        />
-      ) : (
-        <View style={[styles.foto, styles.placeholder]}>
-          <Text style={styles.iconePlaceholder}>🥫</Text>
-        </View>
-      )}
-
-      <View style={styles.info}>
-        <Text style={styles.nome} numberOfLines={1}>{produto.nome}</Text>
-        <Text style={styles.detalhe}>Quantidade: {produto.quantidade}</Text>
-        <Text style={styles.detalhe}>Validade: {formatarDataBR(produto.dataDeValidade)}</Text>
-
-        {estiloSituacao ? (
-          <View style={[styles.selo, { backgroundColor: estiloSituacao.fundo }]}>
-            <Text style={[styles.textoSelo, { color: estiloSituacao.cor }]}>
-              {estiloSituacao.rotulo}
-            </Text>
+      <Corpo style={styles.corpo} {...propsCorpo}>
+        {temFoto ? (
+          <Image
+            source={{ uri: produto.fotoUri }}
+            style={styles.foto}
+            onError={() => setUriComErro(produto.fotoUri)}
+          />
+        ) : (
+          <View style={[styles.foto, styles.placeholder]}>
+            <Text style={styles.iconePlaceholder}>🥫</Text>
           </View>
-        ) : null}
-      </View>
+        )}
 
-      {onRemover ? (
-        <TouchableOpacity
-          onPress={() => onRemover(produto)}
-          accessibilityRole="button"
-          accessibilityLabel={`Remover ${produto.nome}`}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={styles.botaoRemover}
-        >
-          <Text style={styles.textoRemover}>Remover</Text>
-        </TouchableOpacity>
+        <View style={styles.info}>
+          <Text style={styles.nome} numberOfLines={1}>{produto.nome}</Text>
+          <Text style={styles.detalhe}>Quantidade: {produto.quantidade}</Text>
+          <Text style={styles.detalhe}>Validade: {formatarDataBR(produto.dataDeValidade)}</Text>
+
+          {estiloSituacao ? (
+            <View style={[styles.selo, { backgroundColor: estiloSituacao.fundo }]}>
+              <Text style={[styles.textoSelo, { color: estiloSituacao.cor }]}>
+                {estiloSituacao.rotulo}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </Corpo>
+
+      {onEditar || onRemover ? (
+        <View style={styles.acoes}>
+          {onEditar ? (
+            <TouchableOpacity
+              onPress={() => onEditar(produto)}
+              accessibilityRole="button"
+              accessibilityLabel={`Editar ${produto.nome}`}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.botaoAcao}
+            >
+              <Text style={styles.textoEditar}>Editar</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onRemover ? (
+            <TouchableOpacity
+              onPress={() => onRemover(produto)}
+              accessibilityRole="button"
+              accessibilityLabel={`Remover ${produto.nome}`}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.botaoAcao}
+            >
+              <Text style={styles.textoRemover}>Remover</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
@@ -120,10 +148,22 @@ const styles = StyleSheet.create({
     fontSize: fonte.pequena,
     fontWeight: 'bold',
   },
-  botaoRemover: {
-    alignSelf: 'flex-start',
+  corpo: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  acoes: {
     marginLeft: espacamento.sm,
+    gap: espacamento.sm,
+    alignItems: 'flex-end',
+  },
+  botaoAcao: {
     paddingVertical: espacamento.xs,
+  },
+  textoEditar: {
+    fontSize: fonte.pequena,
+    fontWeight: 'bold',
+    color: cores.primaria,
   },
   textoRemover: {
     fontSize: fonte.pequena,

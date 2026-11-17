@@ -1,5 +1,6 @@
 import { Alert, Linking, Platform } from 'react-native';
 import { cancelAllScheduledNotificationsAsync } from 'expo-notifications/build/cancelAllScheduledNotificationsAsync';
+import { cancelScheduledNotificationAsync } from 'expo-notifications/build/cancelScheduledNotificationAsync';
 import { getAllScheduledNotificationsAsync } from 'expo-notifications/build/getAllScheduledNotificationsAsync';
 import { AndroidImportance } from 'expo-notifications/build/NotificationChannelManager.types';
 import { getPermissionsAsync, requestPermissionsAsync } from 'expo-notifications/build/NotificationPermissions';
@@ -14,6 +15,7 @@ const Notifications = {
   AndroidImportance,
   SchedulableTriggerInputTypes,
   cancelAllScheduledNotificationsAsync,
+  cancelScheduledNotificationAsync,
   getAllScheduledNotificationsAsync,
   getPermissionsAsync,
   requestPermissionsAsync,
@@ -56,6 +58,9 @@ export default class NotificacoesService {
       const dias = calcularDiasRestantes(produto.dataDeValidade);
       const content = {
         title: 'Produto vencendo',
+        // produtoId permite cancelar o alerta depois (cancelarAlerta); o
+        // identifier da notificação não é guardado no produto nem no JSON.
+        data: { produtoId: produto.id },
         body:
           dias > DIAS_ANTECEDENCIA
             ? montarCorpo(produto.nome, DIAS_ANTECEDENCIA)
@@ -94,6 +99,26 @@ export default class NotificacoesService {
 
   static async cancelarTodas() {
     await Notifications.cancelAllScheduledNotificationsAsync();
+  }
+
+  /**
+   * Cancela as notificações agendadas do produto (content.data.produtoId).
+   * Não lança exceção se não houver nenhuma; falhas são registradas no console
+   * e não impedem a edição nem a remoção do produto.
+   * @param {string} produtoId
+   */
+  static async cancelarAlerta(produtoId) {
+    try {
+      const agendadas = await Notifications.getAllScheduledNotificationsAsync();
+      const doProduto = agendadas.filter(
+        (notificacao) => notificacao.content?.data?.produtoId === produtoId
+      );
+      for (const notificacao of doProduto) {
+        await Notifications.cancelScheduledNotificationAsync(notificacao.identifier);
+      }
+    } catch (erro) {
+      console.error('[NotificacoesService] falha ao cancelar alerta do produto:', erro);
+    }
   }
 
   static async #garantirPermissao() {

@@ -9,7 +9,7 @@ cadastro com foto, alerta de itens "vencendo esta semana" e notificações locai
 ## Decisões do projeto (fonte de verdade)
 
 - **Plataforma:** Android · **Stack:** React Native (JSX) com Expo, testado no Expo Go
-- **Navegação:** React Navigation configurado (native stack, rotas: Inicial e Cadastro). Template blank, expo-router descartado.
+- **Navegação:** React Navigation configurado (native stack, rotas: Inicial, Cadastro e TelaDetalhe). Template blank, expo-router descartado.
 - **Escopo da Etapa 1:** CRUD completo com persistência local em JSON (expo-file-system)
 - **Escopo da Etapa 2:** persistência em banco REMOTO via API (mesma interface do repositório)
 - **Identificação do produto:** foto do alimento/rótulo pela câmera. Sem código de barras e sem
@@ -70,10 +70,20 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   valores já informados são mantidos.
 - **`dataDeValidade`**: persiste exatamente como string ISO (`'YYYY-MM-DD'`), sem
   conversão de data — decisão do contrato da #1.
-- **Erros de leitura/escrita**: capturados com mensagem clara no console
-  (`[JsonProdutoRepository] ...`), sem travar o app; leitura com problema trata a
-  base como vazia e escrita com falha fica registrada no console.
-- **Usado pelas telas** `TelaInicial` e `TelaCadastro` desde a issue #10.
+- **Erros de leitura/escrita (issue #19)**: nada é engolido em silêncio.
+  - **Gravação**: se `writeAsStringAsync` falhar, o erro é registrado no console
+    (`[JsonProdutoRepository] ...`) e **relançado**; `salvar`, `atualizar` e `remover`
+    propagam a exceção para a tela, que mostra um `Alert` de erro.
+  - **Leitura**: arquivo inexistente (primeira execução) continua devolvendo `[]`;
+    arquivo existente com erro de leitura ou JSON inválido faz `listar()` **lançar um
+    erro explícito** (em português), em vez de devolver `[]`.
+  - **Sem regravação de base vazia**: como `listar()` não devolve mais `[]` para uma base
+    ilegível, `salvar()` não sobrescreve os dados existentes. Backup fica fora da issue #19.
+  - `atualizar(produto)` lança `Produto <id> não encontrado` se o id não existir;
+    `remover(id)` com id inexistente continua sem erro (regrava a lista sem alteração).
+  - `salvar()` devolve o produto gravado (com o `id` gerado), para o alerta de notificação
+    levar o id real (`produtoId`); o contrato `ProdutoRepository` não mudou.
+- **Usado pelas telas** `TelaInicial`, `TelaCadastro` e `TelaDetalhe` (a de detalhe, desde a #19).
 
 ## Regras de vencimento: ServicoValidade (issue #4)
 
@@ -116,11 +126,11 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
 
 ## Estrutura de pastas (implementada na issue #1)
 
-    app/           → telas (navegação via React Navigation: TelaInicial.js e TelaCadastro.js)
+    app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js e TelaDetalhe.js)
     components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, PainelDashboard.js, formatoData.js)
     services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
-    __tests__/     → testes unitários (issue #6) e de integração (issue #14) com Jest
+    __tests__/     → testes unitários (issue #6), de integração (issue #14) e da issue #19 (CameraService, NotificacoesService, IntegracaoEdicao e TelaCadastroEdicao) com Jest
 
 A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi removida na issue #10.
 
@@ -184,6 +194,39 @@ A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi remo
   que agenda o aviso 3 dias antes do vencimento (ou dispara na hora, se faltar menos que isso).
 - **Falha na cópia da foto**: se `CameraService.persistirFoto` não conseguir copiar a foto, o
   cadastro pergunta se o produto deve ser salvo sem foto, em vez de salvar sem ela em silêncio.
+
+## Interface: detalhe, edição e remoção completa (issue #19)
+
+- **Tela de detalhe (`app/TelaDetalhe.js`, rota `TelaDetalhe`)**: recebe só `route.params.produtoId`
+  e carrega o produto com `repositorio.buscarPorId` **sempre que ganha foco** (reflete edições).
+  Exibe foto ampliada (ou o placeholder `🥫`), nome, quantidade, data de validade e
+  `dataDeCadastro` formatadas (DD/MM/AAAA), situação (`classificarSituacao`) e dias restantes
+  (`calcularDiasRestantes`), ambos do `ServicoValidade`. Botões **Editar** e **Remover**. Se o
+  produto não existir (ou a base não puder ser lida), mostra a mensagem e um botão "Voltar".
+- **Cartão (`ProdutoCard`)**: além de `onRemover`, aceita `onPress` (tocar no corpo do cartão abre
+  a `TelaDetalhe`) e `onEditar` (botão "Editar", abre a `Cadastro` em modo edição).
+- **Edição (`TelaCadastro`)**: com `route.params.produto` a tela entra em modo edição (título
+  "Editar produto"; "Novo produto" na criação), pré-preenche os campos, mantém `id` e
+  `dataDeCadastro` originais e chama `repositorio.atualizar()` — nunca `salvar()`. Depois de
+  atualizar, cancela e reagenda o alerta e volta à tela anterior. As validações valem nos dois modos.
+  Se `atualizar()` ou `salvar()` falhar, mostra `Alert` "Erro ao salvar" com a mensagem do erro,
+  não mostra "Produto salvo", não navega e não altera a base. O botão "Remover foto" continua
+  disponível nos dois modos.
+- **Remoção completa** (`TelaInicial` e `TelaDetalhe`), nesta ordem: (1) `NotificacoesService.cancelarAlerta(id)`,
+  (2) `repositorio.remover(id)`, (3) `CameraService.removerFoto(fotoUri)` — só se o passo 2 teve sucesso —
+  e (4) recarregar a lista/painel. Se o passo 2 falhar, mostra `Alert` de erro e a foto não é apagada.
+- **Notificações**: o alerta agendado (e o imediato) leva `content.data.produtoId`; o `identifier`
+  não é guardado no produto nem no JSON. `cancelarAlerta(produtoId)` cancela só as notificações
+  daquele produto e não lança exceção (falhas vão para o console com `[NotificacoesService]`).
+  Alertas criados antes da #19 não têm `produtoId` e não são cancelados por essa função.
+- **Fotos**: `CameraService.removerFoto(uri)` só apaga arquivos dentro de
+  `documentDirectory/fotos/` (fotos da galeria nunca são apagadas) e não lança exceção. Na edição, a
+  foto antiga só é apagada depois de `atualizar()` ter sucesso; se `atualizar()` falhar, apaga-se a
+  cópia nova feita naquela tentativa e a original é mantida.
+- **Falha ao carregar a lista**: se `listar()` lançar erro, a `TelaInicial` mostra `Alert`
+  "Erro ao carregar" e um `EmptyState` de falha, sem regravar nada.
+- **Dashboard**: `ServicoDashboard` e `PainelDashboard` não mudaram; a tela inicial recarrega ao
+  ganhar foco (inclusive ao voltar do detalhe ou da edição).
 
 ## Recursos do dispositivo: câmera e galeria (issue #11)
 
@@ -288,8 +331,12 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
     npx jest
 
 - **`ServicoValidade` (`__tests__/ServicoValidade.test.js`)**: testes das funções `calcularDiasRestantes` (passado, hoje e futuro) e `classificarSituacao` cobrindo todos os casos-limite da issue #4 (`vencido`, `venceEstaSemana`, `venceEsteMes` e `ok`).
-- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`.
+- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`. Na issue #19 foram acrescentados: `atualizar()` (substitui pelo id, mantém o total e preserva `dataDeCadastro`; id inexistente lança erro), `listar()` com JSON inválido ou falha de leitura (lança erro, não devolve `[]`), falha de escrita propagada para `salvar`/`atualizar`/`remover` e `salvar()` que não sobrescreve a base quando `listar()` falha.
 - **`IntegracaoEtapa1` (`__tests__/IntegracaoEtapa1.test.js`)**: testes de integração da Etapa 1 (issue #14) verificando as peças funcionando em conjunto (`JsonProdutoRepository`, `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`) no cenário completo de 5 produtos.
+- **`NotificacoesService` (`__tests__/NotificacoesService.test.js`, issue #19)**: `cancelarAlerta` cancela só as notificações do `produtoId` (sem lançar exceção quando não há nenhuma ou quando o cancelamento falha) e `agendarAlerta` inclui `produtoId` em `content.data`, tanto no alerta imediato quanto no agendado.
+- **`CameraService.removerFoto` (`__tests__/CameraService.test.js`, issue #19)**: apaga dentro de `documentDirectory/fotos/`, não apaga fora dessa pasta, ignora uri vazia e não lança exceção se o arquivo não existir ou a exclusão falhar.
+- **`IntegracaoEdicao` (`__tests__/IntegracaoEdicao.test.js`, issue #19)**: edita um produto da base de 5 itens e confere a listagem, a ordenação, a situação calculada, os contadores do dashboard e o reagendamento do alerta.
+- **`TelaCadastroEdicao` (`__tests__/TelaCadastroEdicao.test.js`, issue #19)**: renderiza a `TelaCadastro` (com `react-test-renderer`, já instalado pelo `jest-expo`) nos modos criação e edição — pré-preenchimento, `atualizar()` com `id` e `dataDeCadastro` preservados, troca e remoção de foto com apagamento da antiga, falha de gravação sem "Produto salvo" e sem alterar a base, e descarte da foto nova quando `atualizar()` falha.
 
 ## Histórico de decisões
 
@@ -341,4 +388,5 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   produtos (`__tests__/IntegracaoEtapa1.test.js`), validação manual de ponta a ponta no Expo Go
   (SDK 57) sem erros e remoção das telas de teste temporárias `TelaTesteCamera` e
   `TelaTesteNotificacoes`, de suas rotas e do botão "Testes" do cabeçalho.
+- 2026-11-16 — Issue #19 — edição, detalhe, robustez da persistência e limpeza de notificações e fotos (implementação).
 
