@@ -6,10 +6,14 @@ cadastro com foto, alerta de itens "vencendo esta semana" e notificações locai
 **Disciplina:** Programação para Dispositivos Móveis
 **Grupo:** Paulo Moura, Arthur Alexandre e João Victor Lucena
 
+**Vídeo de demonstração:** 
+
+https://github.com/user-attachments/assets/20aa1911-a97f-4cdf-a4ca-163aac567105
+
 ## Decisões do projeto (fonte de verdade)
 
 - **Plataforma:** Android · **Stack:** React Native (JSX) com Expo, testado no Expo Go
-- **Navegação:** React Navigation configurado (native stack, rotas: Inicial, Cadastro e TelaDetalhe). Template blank, expo-router descartado.
+- **Navegação:** React Navigation (native stack, rotas: Inicial, Cadastro e TelaDetalhe).
 - **Escopo da Etapa 1:** CRUD completo com persistência local em JSON (expo-file-system)
 - **Escopo da Etapa 2:** persistência em banco REMOTO via API (mesma interface do repositório)
 - **Identificação do produto:** foto do alimento/rótulo pela câmera. Sem código de barras e sem
@@ -37,7 +41,9 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
 
 ## Contrato de dados (acordado na issue #1)
 
-O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente, usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`) foi concluída na issue #3 — ver seção abaixo.
+O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente,
+usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`)
+foi concluída na issue #3 — ver seção abaixo.
 
 **Modelo `Produto`:**
 - `id`: Identificador único do produto.
@@ -85,6 +91,19 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
     levar o id real (`produtoId`); o contrato `ProdutoRepository` não mudou.
 - **Usado pelas telas** `TelaInicial`, `TelaCadastro` e `TelaDetalhe` (a de detalhe, desde a #19).
 
+## Justificativa da tecnologia de persistência (RT02)
+
+A persistência usa `expo-file-system` com um arquivo `produtos.json` e a pasta `fotos/`, em vez de
+`AsyncStorage` ou `SQLite`, pelos motivos abaixo:
+- O domínio tem uma única entidade simples; um array JSON atende ao volume esperado sem a
+  necessidade de consultas relacionais.
+- As fotos já precisavam ser gravadas em disco (`documentDirectory/fotos/`); usar a mesma API de
+  arquivos para os dados mantém uma única camada de I/O.
+- O `JsonProdutoRepository` implementa o contrato `ProdutoRepository`, então trocar a persistência
+  pela API remota (Etapa 2) não exige alterar as telas.
+
+[Ajuste este texto com as palavras do grupo antes da entrega.]
+
 ## Regras de vencimento: ServicoValidade (issue #4)
 
 - **`services/ServicoValidade.js`**: regras de vencimento centralizadas na
@@ -101,7 +120,7 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
   casos-limite (ontem, hoje, +7, +8 e +35 dias) com dias restantes e situação
   calculados pelo serviço; removida na #10 junto com os mocks.
 - **Uso**: desde a #10 é a única fonte do cálculo de datas — usado pela
-  `TelaInicial`, pelo `ServicoDashboard` e pelo `NotificacoesService`.
+  `TelaInicial`, pelo `ServicoDashboard`, pelo `NotificacoesService` e pela `TelaDetalhe`.
 
 ## Agregações do dashboard: ServicoDashboard (issue #5)
 
@@ -131,8 +150,29 @@ O contrato de dados é a base para que os integrantes desenvolvam suas partes de
     services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
     __tests__/     → testes unitários (issue #6), de integração (issue #14) e da issue #19 (CameraService, NotificacoesService, IntegracaoEdicao e TelaCadastroEdicao) com Jest
+    assets/        → ícones, splash screen e screenshots do README (assets/screenshots/)
 
 A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi removida na issue #10.
+
+## Telas do aplicativo
+
+![Tela inicial com painel](assets/screenshots/01-listagem-dashboard.png)
+*Tela inicial: painel de situação e lista ordenada por validade.*
+
+![Busca e filtro](assets/screenshots/02-busca-filtro.png)
+*Busca por nome e filtro por situação.*
+
+![Cadastro](assets/screenshots/03-cadastro.png)
+*Formulário de cadastro com foto.*
+
+![Edição](assets/screenshots/04-edicao.png)
+*Edição de produto com campos pré-preenchidos.*
+
+![Detalhe](assets/screenshots/05-detalhe.png)
+*Tela de detalhe: foto, situação, dias restantes e data de cadastro.*
+
+![Confirmação de exclusão](assets/screenshots/06-confirmacao-exclusao.png)
+*Confirmação antes de remover um produto.*
 
 ## Interface: tema e componentes (issue #7)
 
@@ -346,7 +386,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   consolidado com navegação via React Navigation.
 - 2026-10-02 — Plano da Etapa 1 concluído: 14 issues criadas no GitHub (2 de
   fundação + 4 por integrante, blocos independentes contra o contrato da #1);
-  `NotificacoesService` movida para o bloco do João;   labels `setup`, `feat` e `docs` configuradas.
+  `NotificacoesService` movida para o bloco do João; labels `setup`, `feat` e `docs` configuradas.
 - 2026-10-02 — Issue #1 concluída: estrutura de pastas (app, components, services, data) criada; contrato de dados definido (Produto + ProdutoRepository), base para os blocos independentes da Etapa 1.
 - 2026-10-02 — Issue #2 concluída: React Navigation configurado (NavigationContainer + native stack); telas TelaInicial e TelaCadastro criadas em app/; navegação Inicial → Cadastro → Voltar funcional.
 - 2026-10-13 — Issue #7 concluída: tema visual central (`components/theme.js`) e componentes
@@ -388,5 +428,6 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   produtos (`__tests__/IntegracaoEtapa1.test.js`), validação manual de ponta a ponta no Expo Go
   (SDK 57) sem erros e remoção das telas de teste temporárias `TelaTesteCamera` e
   `TelaTesteNotificacoes`, de suas rotas e do botão "Testes" do cabeçalho.
-- 2026-11-16 — Issue #19 — edição, detalhe, robustez da persistência e limpeza de notificações e fotos (implementação).
-
+- 2026-11-16 — Issue #19 concluída: edição, tela de detalhe, robustez da persistência e limpeza de
+  notificações e fotos. Validada no Expo Go (fluxos de edição, detalhe, remoção e persistência).
+  Entregue em `dev` (commit `9bf785f`) e integrada à `main` (merge `1aa57c3`).
