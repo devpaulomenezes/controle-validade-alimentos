@@ -17,6 +17,7 @@ import repositorio from '../data/JsonProdutoRepository';
 import CameraService from '../services/CameraService';
 import NotificacoesService from '../services/NotificacoesService';
 import { cores, espacamento, raio, fonte, estilosBase } from '../theme/theme';
+import { calcularDiasRestantes } from '../services/ServicoValidade';
 import { formatarDataBR, dataParaIso, isoParaData } from '../utils/formatoData';
 
 function validar({ nome, quantidade, dataDeValidade }) {
@@ -32,8 +33,16 @@ function validar({ nome, quantidade, dataDeValidade }) {
   }
   if (!dataDeValidade) {
     erros.dataDeValidade = 'Selecione a data de validade.';
+  } else if (calcularDiasRestantes(dataDeValidade) < 0) {
+    erros.dataDeValidade = 'A data de validade não pode ser anterior à data de hoje.';
   }
   return erros;
+}
+
+/** Hoje às 00:00 no fuso local, para o minimumDate do seletor. */
+function inicioDeHoje() {
+  const agora = new Date();
+  return new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
 }
 
 /**
@@ -99,6 +108,7 @@ export default function TelaCadastro({ navigation, route }) {
       DateTimePickerAndroid.open({
         value: valorInicial,
         mode: 'date',
+        minimumDate: inicioDeHoje(),
         onValueChange: (_evento, data) => selecionarData(data),
       });
     } else {
@@ -309,6 +319,7 @@ export default function TelaCadastro({ navigation, route }) {
               <DateTimePicker
                 value={dataDeValidade ? isoParaData(dataDeValidade) : new Date()}
                 mode="date"
+                minimumDate={inicioDeHoje()}
                 display="inline"
                 onValueChange={(_evento, data) => selecionarData(data)}
               />
