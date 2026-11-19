@@ -147,6 +147,7 @@ async function renderizar(navigation, params) {
         await botao.props.onPress();
       });
     },
+    temTextoNaTela: (texto) => temTexto(raiz, texto),
     valoresDosCampos: () => raiz.findAllByType(TextInput).map((t) => t.props.value),
     async digitarNoCampo(indice, texto) {
       const campo = raiz.findAllByType(TextInput)[indice];
@@ -353,6 +354,65 @@ describe('TelaCadastro: criação e edição (issue #19)', () => {
     expect(navigation.goBack).not.toHaveBeenCalled();
     // Nenhuma exclusão da foto original foi solicitada.
     expect(FileSystem.deleteAsync).not.toHaveBeenCalledWith(FOTO_ORIGINAL, expect.anything());
+    tela.desmontar();
+  });
+
+  const MSG_PASSADA = 'A data de validade não pode ser anterior à data de hoje.';
+
+  it('FORM-01: data passada na criação mostra o erro e não salva', async () => {
+    const salvarSpy = jest.spyOn(repositorio, 'salvar');
+    const navigation = criarNavegacao();
+    const tela = await renderizar(navigation, undefined);
+
+    await tela.digitarNoCampo(0, 'Iogurte');
+    await tela.digitarNoCampo(1, '1');
+    await tela.tocarPorRotulo('Selecionar data de validade');
+    const [ano, mes, dia] = dataIso(-1).split('-').map(Number);
+    await act(async () => {
+      mockSeletorData.props.onValueChange({}, new Date(ano, mes - 1, dia));
+    });
+    await tela.tocarPorTexto('Salvar');
+
+    expect(tela.temTextoNaTela(MSG_PASSADA)).toBe(true);
+    expect(salvarSpy).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalledWith('Produto salvo', expect.anything(), expect.anything());
+    salvarSpy.mockRestore();
+    tela.desmontar();
+  });
+
+  it('FORM-01: data passada na edição mostra o erro e não atualiza', async () => {
+    await semearBase();
+    const atualizarSpy = jest.spyOn(repositorio, 'atualizar');
+    const navigation = criarNavegacao();
+    const tela = await renderizar(navigation, {
+      produto: { ...produtoBase(), dataDeValidade: dataIso(-1) },
+    });
+
+    await tela.tocarPorTexto('Salvar');
+
+    expect(tela.temTextoNaTela(MSG_PASSADA)).toBe(true);
+    expect(atualizarSpy).not.toHaveBeenCalled();
+    expect(navigation.goBack).not.toHaveBeenCalled();
+    atualizarSpy.mockRestore();
+    tela.desmontar();
+  });
+
+  it('FORM-01: data de hoje é aceita e salva', async () => {
+    const navigation = criarNavegacao();
+    const tela = await renderizar(navigation, undefined);
+
+    await tela.digitarNoCampo(0, 'Pão');
+    await tela.digitarNoCampo(1, '1');
+    await tela.tocarPorRotulo('Selecionar data de validade');
+    const hoje = new Date();
+    await act(async () => {
+      mockSeletorData.props.onValueChange({}, hoje);
+    });
+    await tela.tocarPorTexto('Salvar');
+
+    const [salvo] = await repositorio.listar();
+    expect(salvo.dataDeValidade).toBe(dataIso(0));
+    expect(tela.temTextoNaTela(MSG_PASSADA)).toBe(false);
     tela.desmontar();
   });
 });

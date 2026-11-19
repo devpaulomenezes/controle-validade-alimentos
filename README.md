@@ -205,7 +205,7 @@ A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi remo
   pela biblioteca. A data é gravada no formato do contrato (`'YYYY-MM-DD'`) a partir da data
   **local** — sem `toISOString()`, que converte para UTC e pode adiantar um dia à noite.
 - **Validação** (mensagens em português): nome obrigatório, quantidade inteira maior que zero e
-  data obrigatória. Datas passadas são aceitas (o produto pode já estar vencido).
+  data obrigatória e não anterior a hoje (datas de hoje e futuras são aceitas).
 - Ao salvar, cria um `Produto` do contrato e grava no **`JsonProdutoRepository`** (#3), que gera
   `id` e `dataDeCadastro`; agenda o alerta de vencimento (`NotificacoesService.agendarAlerta`,
   #12), mostra "Produto salvo" e volta à tela inicial. Até a #10 o cadastro gravava num
