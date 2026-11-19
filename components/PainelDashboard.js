@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { cores, situacoes, espacamento, raio, fonte } from './theme';
+import { cores, situacoes, espacamento, raio, fonte } from '../theme/theme';
 
 const CONTADORES = [
   { campo: 'vencidos', filtro: 'vencido', rotulo: 'Vencidos', cor: situacoes.vencido.cor },

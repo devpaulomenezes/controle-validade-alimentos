@@ -5,7 +5,7 @@
  * repositórios. Usado pelas telas, pelo ServicoDashboard e pelo
  * NotificacoesService desde a issue #10.
  */
-import { isoParaData } from '../components/formatoData';
+import { isoParaData } from '../utils/formatoData';
 
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
 

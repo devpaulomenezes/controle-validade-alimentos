@@ -154,7 +154,9 @@ Os dados sobrevivem ao fechamento e à reabertura do aplicativo, o que foi valid
 ## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js e TelaDetalhe.js)
-    components/    → componentes reutilizáveis (theme.js, ProdutoCard.js, EmptyState.js, PainelDashboard.js, formatoData.js)
+    components/    → componentes reutilizáveis (ProdutoCard.js, EmptyState.js, PainelDashboard.js)
+    theme/         → tema visual central (theme.js)
+    utils/         → utilitários auxiliares (formatoData.js)
     services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
     __tests__/     → testes unitários (issue #6), de integração (issue #14) e da issue #19 (CameraService, NotificacoesService, IntegracaoEdicao e TelaCadastroEdicao) com Jest
@@ -184,7 +186,7 @@ A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi remo
 
 ## Interface: tema e componentes (issue #7)
 
-- **Tema central** (`components/theme.js`): paleta de cores, espaçamentos, raios, tamanhos de
+- **Tema central** (`theme/theme.js`): paleta de cores, espaçamentos, raios, tamanhos de
   fonte e estilos base (`estilosBase`). Telas e componentes importam daqui — nada de cores soltas.
 - **Cores das situações** (chaves iguais às do `ServicoValidade.classificarSituacao`, issue #4):
   vermelho = `vencido`, amarelo = `venceEstaSemana`, azul = `venceEsteMes`, verde = `ok`.
@@ -397,7 +399,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   `NotificacoesService` movida para o bloco do João; labels `setup`, `feat` e `docs` configuradas.
 - 2026-10-02 — Issue #1 concluída: estrutura de pastas (app, components, services, data) criada; contrato de dados definido (Produto + ProdutoRepository), base para os blocos independentes da Etapa 1.
 - 2026-10-02 — Issue #2 concluída: React Navigation configurado (NavigationContainer + native stack); telas TelaInicial e TelaCadastro criadas em app/; navegação Inicial → Cadastro → Voltar funcional.
-- 2026-10-13 — Issue #7 concluída: tema visual central (`components/theme.js`) e componentes
+- 2026-10-13 — Issue #7 concluída: tema visual central (`theme/theme.js`) e componentes
   reutilizáveis `ProdutoCard` e `EmptyState`, validados na tela de teste temporária com produtos mock
   nas 4 situações; cabeçalho da navegação usando as cores do tema.
 - 2026-10-13 — Issue #8 concluída: tela de cadastro com formulário validado e date picker

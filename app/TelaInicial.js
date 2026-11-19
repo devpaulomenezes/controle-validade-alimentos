@@ -14,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import ProdutoCard from '../components/ProdutoCard';
 import EmptyState from '../components/EmptyState';
 import PainelDashboard from '../components/PainelDashboard';
-import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../components/theme';
+import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../theme/theme';
 import repositorio from '../data/JsonProdutoRepository';
 import { classificarSituacao } from '../services/ServicoValidade';
 import { ordenarPorValidade, resumirProdutos } from '../services/ServicoDashboard';

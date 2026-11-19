@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { cores, situacoes, espacamento, raio, fonte } from './theme';
-import { formatarDataBR } from './formatoData';
+import { cores, situacoes, espacamento, raio, fonte } from '../theme/theme';
+import { formatarDataBR } from '../utils/formatoData';
 
 /**
  * Cartão de um produto na listagem.

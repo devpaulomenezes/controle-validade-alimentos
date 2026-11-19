@@ -16,8 +16,8 @@ import Produto from '../data/Produto';
 import repositorio from '../data/JsonProdutoRepository';
 import CameraService from '../services/CameraService';
 import NotificacoesService from '../services/NotificacoesService';
-import { cores, espacamento, raio, fonte, estilosBase } from '../components/theme';
-import { formatarDataBR, dataParaIso, isoParaData } from '../components/formatoData';
+import { cores, espacamento, raio, fonte, estilosBase } from '../theme/theme';
+import { formatarDataBR, dataParaIso, isoParaData } from '../utils/formatoData';
 
 function validar({ nome, quantidade, dataDeValidade }) {
   const erros = {};

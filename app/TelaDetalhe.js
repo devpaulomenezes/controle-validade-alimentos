@@ -14,8 +14,8 @@ import repositorio from '../data/JsonProdutoRepository';
 import NotificacoesService from '../services/NotificacoesService';
 import CameraService from '../services/CameraService';
 import { calcularDiasRestantes, classificarSituacao } from '../services/ServicoValidade';
-import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../components/theme';
-import { formatarDataBR, dataParaIso } from '../components/formatoData';
+import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../theme/theme';
+import { formatarDataBR, dataParaIso } from '../utils/formatoData';
 
 /** Texto dos dias restantes (apenas apresentação; o cálculo vem do ServicoValidade). */
 function descreverDias(dias) {

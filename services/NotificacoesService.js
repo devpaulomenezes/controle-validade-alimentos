@@ -9,7 +9,7 @@ import { setNotificationHandler } from 'expo-notifications/build/NotificationsHa
 import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
 import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
 import { calcularDiasRestantes } from './ServicoValidade';
-import { isoParaData } from '../components/formatoData';
+import { isoParaData } from '../utils/formatoData';
 
 const Notifications = {
   AndroidImportance,
