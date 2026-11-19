@@ -372,6 +372,17 @@ Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
 
 Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 
+## Executando o Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env   # preencha DATABASE_URL e JWT_SECRET
+npm start
+```
+
+O servidor sobe na porta definida em `PORT` (padrão 3000). O contrato completo da API está em [backend/README.md](backend/README.md).
+
 ## Testes
 
 Testes unitários e de integração executados com **Jest** utilizando o preset **`jest-expo`**.
