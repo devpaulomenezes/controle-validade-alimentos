@@ -15,3 +15,14 @@ Implementação de `ProdutoRepository` contra a API remota (`/produtos`, `/produ
 | Variável | Descrição |
 | --- | --- |
 | `EXPO_PUBLIC_API_URL` | URL base da API (ex.: `https://api.exemplo.com`). Sem fallback para `localhost`/`10.0.2.2`; se ausente, as chamadas lançam erro. |
+
+## FilaSincronizacao (APP-03, Etapa 2)
+
+Fila FIFO de operações pendentes de sincronização, persistida em `fila_sincronizacao.json` (pasta de documentos do app, via `expo-file-system/legacy`). Exporta um singleton padrão e a classe nomeada `FilaSincronizacao`.
+
+- **Gravação atômica:** escreve em `fila_sincronizacao.tmp.json` e usa `moveAsync` para sobrescrever `fila_sincronizacao.json`.
+- `listar()`: retorna a lista; arquivo inexistente ou JSON corrompido (logado com `console.error`) retorna `[]`.
+- `enfileirar({ tipo, produtoId, payload, usuarioId })`: gera `idOperacao` único (Date + Math.random + contador) e `criadoEm` (ISO 8601), adiciona ao final e salva. Retorna a operação.
+- `removerOperacao(idOperacao)`: remove o item; se não existir, não faz nada.
+- `quantidade()`: tamanho da fila (0 se não existir).
+- `limpar()`: esvazia a fila e salva.
