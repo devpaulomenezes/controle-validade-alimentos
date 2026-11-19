@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import TelaInicial from './app/TelaInicial';
 import TelaCadastro from './app/TelaCadastro';
 import TelaDetalhe from './app/TelaDetalhe';
-import { cores } from './components/theme';
+import { cores } from './theme/theme';
 
 const Stack = createNativeStackNavigator();
 

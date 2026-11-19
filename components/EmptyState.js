@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { cores, espacamento, fonte, estilosBase } from './theme';
+import { cores, espacamento, fonte, estilosBase } from '../theme/theme';
 
 /**
  * Estado de lista vazia: ícone, mensagem e chamada para ação opcional.
