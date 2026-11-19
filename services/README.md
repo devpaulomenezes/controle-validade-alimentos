@@ -17,6 +17,15 @@ Camada de serviços do aplicativo, dividida em regras de negócio e recursos do 
   - Método `agendarAlerta(produto)`: dispara notificação imediata se faltam 3 dias ou menos (ou se já venceu), ou agenda alerta local para 3 dias antes do vencimento às 09:00. Chamado pela `TelaCadastro` ao salvar (#10).
   - Dias restantes calculados pelo `ServicoValidade.calcularDiasRestantes` (#10) — sem cálculo de datas próprio.
 
+## Autenticação e Sessão (APP-02)
+
+- **`AuthService.js`:**
+  - Singleton. `login(email, senha)` → `POST /auth/login` (401 → `Error("Credenciais inválidas.")`); `registrar(nome, email, senha)` → `POST /auth/registro` (409 → `Error` com a `mensagem` do servidor). Base da URL: `EXPO_PUBLIC_API_URL`.
+  - Sucesso grava `sessao.json` (`expo-file-system/legacy`) com `{ token, usuario: { id, nome, email } }` e retorna esses dados.
+  - `obterSessao()`, `obterToken()` e `obterUsuarioId()` leem só o arquivo local (sem rede); arquivo ausente ou JSON corrompido devolve `null`.
+  - `logout()` remove `sessao.json`; idempotente (sem arquivo, não lança erro).
+  - Testes: `__tests__/AuthService.test.js` (mocks de `fetch` e do FileSystem).
+
 ## Regras de Negócio (bloco do Paulo)
 
 - **`ServicoValidade.js` (Issue #4):**
