@@ -13,7 +13,8 @@ https://github.com/user-attachments/assets/20aa1911-a97f-4cdf-a4ca-163aac567105
 ## Decisões do projeto (fonte de verdade)
 
 - **Plataforma:** Android · **Stack:** React Native (JSX) com Expo, testado no Expo Go
-- **Navegação:** React Navigation (native stack, rotas: Inicial, Cadastro e TelaDetalhe).
+- **Navegação:** React Navigation (native stack, rotas: Inicial, Cadastro e TelaDetalhe; sem
+  sessão salva, apenas Login — APP-07).
 - **Escopo da Etapa 1:** CRUD completo com persistência local em JSON (expo-file-system)
 - **Escopo da Etapa 2:** persistência em banco REMOTO via API (mesma interface do repositório)
 - **Identificação do produto:** foto do alimento/rótulo pela câmera. Sem código de barras e sem
@@ -32,8 +33,16 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
                                                               ↓
                                                   produtos.json (FileSystem do dispositivo)
 
+Na Etapa 2 (APP-07), as telas passaram a usar o `OfflineFirstProdutoRepository`, que implementa a
+mesma interface e coordena três fontes:
+
+    Tela → OfflineFirstProdutoRepository ─┬→ JsonProdutoRepository (cache local, produtos.json)
+                                          ├→ FilaSincronizacao (alterações offline, fila_sincronizacao.json)
+                                          └→ ApiProdutoRepository → API remota (EXPO_PUBLIC_API_URL)
+
 - **Por que Repository:** as telas nunca acessam a origem dos dados diretamente. Na Etapa 2,
-  troca-se apenas a implementação (JsonProdutoRepository → ApiProdutoRepository) sem alterar telas.
+  trocou-se apenas a implementação importada pelas telas (JsonProdutoRepository →
+  OfflineFirstProdutoRepository), sem mudar o CRUD das telas.
 - **Singleton** no repositório: fonte de verdade única para todas as telas.
 - **Modelo:** Produto = id, nome, quantidade, dataDeValidade, fotoUri, dataDeCadastro.
   Regras de vencimento (dias restantes; vencido / esta semana / este mês / ok) centralizadas
@@ -89,7 +98,8 @@ foi concluída na issue #3 — ver seção abaixo.
     `remover(id)` com id inexistente continua sem erro (regrava a lista sem alteração).
   - `salvar()` devolve o produto gravado (com o `id` gerado), para o alerta de notificação
     levar o id real (`produtoId`); o contrato `ProdutoRepository` não mudou.
-- **Usado pelas telas** `TelaInicial`, `TelaCadastro` e `TelaDetalhe` (a de detalhe, desde a #19).
+- **Usado pelas telas** `TelaInicial`, `TelaCadastro` e `TelaDetalhe` (a de detalhe, desde a #19)
+  até a APP-07; desde então, é o cache local do `OfflineFirstProdutoRepository`.
 - **Etapa 2 (APP-04, #26)**: ganhou `substituirTodos(produtos)` (espelha a base do servidor;
   usado só pelo `OfflineFirstProdutoRepository`, com a fila vazia) e `limpar()` (logout), e a
   classe passou a ser exportada também com nome. Detalhes em `data/README.md`.
@@ -375,6 +385,15 @@ Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
 
 Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 
+Desde a APP-07 o app abre na tela de login, então precisa da API (seção abaixo) para o primeiro
+acesso. Crie um arquivo `.env` na raiz do app com a URL da API, usando o IP do PC na rede (no
+celular, `localhost` aponta para o próprio aparelho), e reinicie o `npx expo start`:
+
+    EXPO_PUBLIC_API_URL=http://192.168.0.10:3000
+
+Depois do primeiro login, a sessão fica salva no aparelho e o app abre direto na lista, mesmo sem
+internet; as alterações feitas offline sobem quando a conexão volta.
+
 ## Executando o Backend
 
 ```bash
@@ -403,6 +422,8 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - **`TelaCadastroEdicao` (`__tests__/TelaCadastroEdicao.test.js`, issue #19)**: renderiza a `TelaCadastro` (com `react-test-renderer`, já instalado pelo `jest-expo`) nos modos criação e edição — pré-preenchimento, `atualizar()` com `id` e `dataDeCadastro` preservados, troca e remoção de foto com apagamento da antiga, falha de gravação sem "Produto salvo" e sem alterar a base, e descarte da foto nova quando `atualizar()` falha.
 - **`OfflineFirstProdutoRepository` (`__tests__/OfflineFirstProdutoRepository.test.js`, APP-05)**: com cache local, fila e API fakes em memória — escritas e leituras sem conexão sem lançar erro, um item na fila por escrita (com `usuarioId`), escrita que não espera a API, envio na ordem de criação com o mapeamento de cada tipo, retomada sem reenvio após falha no meio, `5xx` e `401` interrompendo e mantendo a fila, `4xx` descartando só o item, itens de outros usuários intocados, `substituirTodos` só com a fila vazia, chamadas simultâneas sem envio duplicado, trava liberada após erro e escrita feita durante o download preservada no cache.
 - **`TelaLogin` (`__tests__/TelaLogin.test.js`, APP-06)**: renderiza a `TelaLogin` com o `AuthService` simulado — alternância entre "Entrar" e "Criar conta" (campo de nome e texto do botão), validações (campos vazios, nome no cadastro, e-mail sem `@`/domínio e senha curta, sem chamar o serviço), envio com sucesso (`aoAutenticar` uma vez, com o usuário), erro da API e falta de conexão em `Alert` (senha limpa) e estado de carregamento (`ActivityIndicator`, botão desabilitado e toque duplo sem envio duplicado).
+- **`AppSessao` (`__tests__/AppSessao.test.js`, APP-07)**: renderiza o `App.js` com o `NavigationContainer` e o native stack reais (telas simuladas) — sem sessão abre na `TelaLogin`; com sessão abre direto na lista; após o login a rota `Login` deixa de existir (o "voltar" não retorna a ela); "Sair" e sessão expirada voltam ao login, a segunda com o aviso.
+- **`TelaInicialSessao` (`__tests__/TelaInicialSessao.test.js`, APP-07)**: renderiza a `TelaInicial` com o repositório e o `AuthService` simulados — sincroniza uma única vez por foco (sem loop do `useFocusEffect`), "Sair" bloqueado com pendências na fila, "Sair" sem pendências na ordem limpar cache → logout → voltar ao login, falha ao limpar o cache sem deslogar, sessão expirada (`401`) apagando a sessão e falha de sincronização sem impedir a lista local. O teste do `OfflineFirstProdutoRepository` ganhou os casos de `quantidadePendente` e `limparCacheLocal`.
 
 ## Histórico de decisões
 
@@ -464,3 +485,6 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   sinalizado para a tela e cache substituído só com a fila vazia.
 - 2026-11-20 — APP-06 (#28) concluída: `TelaLogin` com os modos "Entrar" e "Criar conta", validação
   no formulário, carregamento no botão e erros em `Alert`; avisa o `App.js` por `aoAutenticar`.
+- 2026-11-20 — APP-07 (#29) concluída: `App.js` escolhe a stack pela sessão local (login ou lista,
+  mesmo offline); as três telas usam o `OfflineFirstProdutoRepository`; botão "Sair" bloqueado com
+  pendências na fila; `401` na sincronização volta ao login com o aviso de sessão expirada.

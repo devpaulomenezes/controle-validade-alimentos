@@ -10,7 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import repositorio from '../data/JsonProdutoRepository';
+import repositorio from '../data/OfflineFirstProdutoRepository';
 import NotificacoesService from '../services/NotificacoesService';
 import CameraService from '../services/CameraService';
 import { calcularDiasRestantes, classificarSituacao } from '../services/ServicoValidade';

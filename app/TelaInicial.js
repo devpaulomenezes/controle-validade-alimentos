@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,8 @@ import ProdutoCard from '../components/ProdutoCard';
 import EmptyState from '../components/EmptyState';
 import PainelDashboard from '../components/PainelDashboard';
 import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../theme/theme';
-import repositorio from '../data/JsonProdutoRepository';
+import repositorio from '../data/OfflineFirstProdutoRepository';
+import AuthService from '../services/AuthService';
 import { classificarSituacao } from '../services/ServicoValidade';
 import { ordenarPorValidade, resumirProdutos } from '../services/ServicoDashboard';
 import NotificacoesService from '../services/NotificacoesService';
@@ -43,13 +44,14 @@ async function carregarItens() {
   return produtos.map((produto) => ({ produto, situacao: classificarSituacao(produto) }));
 }
 
-export default function TelaInicial({ navigation }) {
+export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }) {
   const [itens, setItens] = useState([]); // [{ produto, situacao }]
   const [carregando, setCarregando] = useState(true);
   const [removendo, setRemovendo] = useState(false);
   const [erroCarga, setErroCarga] = useState(null); // mensagem quando listar() falha
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('todas');
+  const [saindo, setSaindo] = useState(false);
 
   const abrirCadastro = useCallback(() => navigation.navigate('Cadastro'), [navigation]);
   const abrirDetalhe = useCallback(
@@ -71,8 +73,61 @@ export default function TelaInicial({ navigation }) {
     Alert.alert('Erro ao carregar', mensagem);
   }, []);
 
+  /** 401 na sincronização: apaga a sessão local e avisa o App.js (volta ao login). */
+  const tratarSessaoExpirada = useCallback(async () => {
+    try {
+      await AuthService.logout();
+    } catch (erro) {
+      console.error('[TelaInicial] erro ao apagar a sessão expirada:', erro);
+    }
+    aoSessaoExpirada?.();
+  }, [aoSessaoExpirada]);
+
+  /**
+   * Logout: bloqueado enquanto houver operações do usuário na fila (sair agora
+   * perderia esses dados). Sem pendências, limpa o cache local — o próximo
+   * usuário não vê os produtos do anterior — e só então apaga a sessão.
+   */
+  const sair = useCallback(async () => {
+    if (saindo) return;
+    setSaindo(true);
+    try {
+      const totalPendentes = await repositorio.quantidadePendente();
+      if (totalPendentes > 0) {
+        const quantidade =
+          totalPendentes === 1 ? '1 alteração' : `${totalPendentes} alterações`;
+        Alert.alert(
+          'Alterações não sincronizadas',
+          `Você tem ${quantidade} aguardando conexão. Conecte-se à internet antes de sair, para não perder esses dados.`
+        );
+        return;
+      }
+      await repositorio.limparCacheLocal();
+      await AuthService.logout();
+      aoDeslogar?.();
+    } catch (erro) {
+      console.error('[TelaInicial] erro ao sair:', erro);
+      Alert.alert('Erro', erro?.message || 'Não foi possível sair. Tente novamente.');
+    } finally {
+      setSaindo(false);
+    }
+  }, [saindo, aoDeslogar]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity
+          onPress={sair}
+          disabled={saindo}
+          accessibilityRole="button"
+          accessibilityLabel="Sair"
+          accessibilityState={{ disabled: saindo }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.areaBotaoCabecalho}
+        >
+          <Text style={styles.botaoCabecalho}>Sair</Text>
+        </TouchableOpacity>
+      ),
       headerRight: () => (
         <TouchableOpacity
           onPress={abrirCadastro}
@@ -85,28 +140,52 @@ export default function TelaInicial({ navigation }) {
         </TouchableOpacity>
       ),
     });
-  }, [navigation, abrirCadastro]);
+  }, [navigation, abrirCadastro, sair, saindo]);
 
-  // Recarrega sempre que a tela ganha foco (ex.: ao voltar do cadastro).
+  // "Em andamento" fica numa ref, e não num estado: se este useCallback
+  // dependesse de um estado que ele mesmo altera, sua identidade mudaria a
+  // cada execução e o useFocusEffect abaixo o chamaria em loop.
+  const sincronizandoRef = useRef(false);
+
+  /** Envia a fila, baixa a base remota e recarrega a lista a partir do cache local. */
+  const sincronizarRepositorio = useCallback(async () => {
+    if (sincronizandoRef.current) return;
+    sincronizandoRef.current = true;
+    try {
+      let sessaoExpirada = false;
+      try {
+        const resultado = await repositorio.sincronizar();
+        sessaoExpirada = Boolean(resultado?.sessaoExpirada);
+      } catch (erro) {
+        // Sincronizar é melhor-esforço: a lista local ainda é carregada abaixo.
+        console.error('[TelaInicial] erro ao sincronizar:', erro);
+      }
+      if (sessaoExpirada) {
+        await tratarSessaoExpirada();
+        return;
+      }
+      try {
+        setItens(await carregarItens());
+        setErroCarga(null);
+      } catch (erro) {
+        tratarErroCarga(erro);
+      }
+    } finally {
+      sincronizandoRef.current = false;
+    }
+  }, [tratarErroCarga, tratarSessaoExpirada]);
+
+  // Sincroniza e recarrega sempre que a tela ganha foco (ex.: ao voltar do cadastro).
   useFocusEffect(
     useCallback(() => {
       let ativo = true;
-      carregarItens()
-        .then((novos) => {
-          if (!ativo) return;
-          setItens(novos);
-          setErroCarga(null);
-        })
-        .catch((erro) => {
-          if (ativo) tratarErroCarga(erro);
-        })
-        .finally(() => {
-          if (ativo) setCarregando(false);
-        });
+      sincronizarRepositorio().finally(() => {
+        if (ativo) setCarregando(false);
+      });
       return () => {
         ativo = false;
       };
-    }, [tratarErroCarga])
+    }, [sincronizarRepositorio])
   );
 
   const confirmarRemocao = useCallback(

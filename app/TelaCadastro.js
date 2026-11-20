@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import Produto from '../data/Produto';
-import repositorio from '../data/JsonProdutoRepository';
+import repositorio from '../data/OfflineFirstProdutoRepository';
 import CameraService from '../services/CameraService';
 import NotificacoesService from '../services/NotificacoesService';
 import { cores, espacamento, raio, fonte, estilosBase } from '../theme/theme';

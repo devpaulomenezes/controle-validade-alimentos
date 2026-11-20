@@ -84,6 +84,27 @@ export class OfflineFirstProdutoRepository extends ProdutoRepository {
   }
 
   /**
+   * Quantidade de operações do usuário atual ainda na fila (APP-07: o botão
+   * "Sair" bloqueia o logout com pendências; APP-08: banner de sincronização).
+   *
+   * @returns {Promise<number>}
+   */
+  async quantidadePendente() {
+    const usuarioId = await this.obterUsuarioId();
+    return (await this.#itensPendentes(usuarioId)).length;
+  }
+
+  /**
+   * Limpa o cache local (APP-07: logout, para o próximo usuário não ver os
+   * produtos do anterior). Só deve ser chamado com a fila do usuário vazia.
+   *
+   * @returns {Promise<void>}
+   */
+  async limparCacheLocal() {
+    await this.localRepo.limpar();
+  }
+
+  /**
    * Envia a fila do usuário atual e, com ela vazia, espelha a base do servidor
    * no cache local. Devolve { sessaoExpirada } — true quando o servidor
    * respondeu 401 (a tela decide pedir novo login, APP-07).

@@ -72,6 +72,9 @@ function criarLocalRepoFake() {
     substituirTodos: jest.fn(async (lista) => {
       produtos = lista.map((p) => ({ ...p }));
     }),
+    limpar: jest.fn(async () => {
+      produtos = [];
+    }),
     _produtos: () => produtos,
   };
 }
@@ -443,6 +446,33 @@ describe('OfflineFirstProdutoRepository', () => {
         nome: 'Do servidor',
         quantidade: 1,
       });
+    });
+  });
+
+  describe('apoio ao logout (APP-07)', () => {
+    it('quantidadePendente conta só as operações do usuário atual', async () => {
+      const itemDeOutro = { idOperacao: 'outro-1', tipo: 'REMOVER', produtoId: 'x', payload: null, usuarioId: 'u2' };
+      const contexto = criarRepositorio({ fila: criarFilaFake([itemDeOutro]), usuarioId: 'u1' });
+      expect(await contexto.repo.quantidadePendente()).toBe(0);
+
+      const leite = await escreverOffline(contexto, (repo) => repo.salvar(produto('Leite')));
+      await escreverOffline(contexto, (repo) => repo.remover(leite.id));
+
+      expect(await contexto.repo.quantidadePendente()).toBe(2);
+      reconectar(contexto.remoto);
+      await contexto.repo.sincronizar();
+      expect(await contexto.repo.quantidadePendente()).toBe(0);
+    });
+
+    it('limparCacheLocal esvazia o cache local e não mexe na fila', async () => {
+      const contexto = criarRepositorio();
+      await escreverOffline(contexto, (repo) => repo.salvar(produto('Leite')));
+
+      await contexto.repo.limparCacheLocal();
+
+      expect(contexto.local.limpar).toHaveBeenCalledTimes(1);
+      expect(contexto.local._produtos()).toEqual([]);
+      expect(contexto.fila._itens()).toHaveLength(1);
     });
   });
 });
