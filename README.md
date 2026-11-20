@@ -90,6 +90,9 @@ foi concluída na issue #3 — ver seção abaixo.
   - `salvar()` devolve o produto gravado (com o `id` gerado), para o alerta de notificação
     levar o id real (`produtoId`); o contrato `ProdutoRepository` não mudou.
 - **Usado pelas telas** `TelaInicial`, `TelaCadastro` e `TelaDetalhe` (a de detalhe, desde a #19).
+- **Etapa 2 (APP-04, #26)**: ganhou `substituirTodos(produtos)` (espelha a base do servidor;
+  usado só pelo `OfflineFirstProdutoRepository`, com a fila vazia) e `limpar()` (logout), e a
+  classe passou a ser exportada também com nome. Detalhes em `data/README.md`.
 
 ## Justificativa da tecnologia de persistência (RT02)
 
@@ -392,7 +395,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
     npx jest
 
 - **`ServicoValidade` (`__tests__/ServicoValidade.test.js`)**: testes das funções `calcularDiasRestantes` (passado, hoje e futuro) e `classificarSituacao` cobrindo todos os casos-limite da issue #4 (`vencido`, `venceEstaSemana`, `venceEsteMes` e `ok`).
-- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`. Na issue #19 foram acrescentados: `atualizar()` (substitui pelo id, mantém o total e preserva `dataDeCadastro`; id inexistente lança erro), `listar()` com JSON inválido ou falha de leitura (lança erro, não devolve `[]`), falha de escrita propagada para `salvar`/`atualizar`/`remover` e `salvar()` que não sobrescreve a base quando `listar()` falha.
+- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`. Na issue #19 foram acrescentados: `atualizar()` (substitui pelo id, mantém o total e preserva `dataDeCadastro`; id inexistente lança erro), `listar()` com JSON inválido ou falha de leitura (lança erro, não devolve `[]`), falha de escrita propagada para `salvar`/`atualizar`/`remover` e `salvar()` que não sobrescreve a base quando `listar()` falha. Na APP-04 (#26) foram acrescentados: `substituirTodos` (lista preenchida convertida em `Produto`, lista vazia e valor que não é lista), `limpar` (com e sem arquivo, e falha de gravação) e a exportação nomeada da classe.
 - **`IntegracaoEtapa1` (`__tests__/IntegracaoEtapa1.test.js`)**: testes de integração da Etapa 1 (issue #14) verificando as peças funcionando em conjunto (`JsonProdutoRepository`, `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`) no cenário completo de 5 produtos.
 - **`NotificacoesService` (`__tests__/NotificacoesService.test.js`, issue #19)**: `cancelarAlerta` cancela só as notificações do `produtoId` (sem lançar exceção quando não há nenhuma ou quando o cancelamento falha) e `agendarAlerta` inclui `produtoId` em `content.data`, tanto no alerta imediato quanto no agendado.
 - **`CameraService.removerFoto` (`__tests__/CameraService.test.js`, issue #19)**: apaga dentro de `documentDirectory/fotos/`, não apaga fora dessa pasta, ignora uri vazia e não lança exceção se o arquivo não existir ou a exclusão falhar.
@@ -452,3 +455,5 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - 2026-11-16 — Issue #19 concluída: edição, tela de detalhe, robustez da persistência e limpeza de
   notificações e fotos. Validada no Expo Go (fluxos de edição, detalhe, remoção e persistência).
   Entregue em `dev` (commit `9bf785f`) e integrada à `main` (merge `1aa57c3`).
+- 2026-11-20 — APP-04 (#26) concluída: `JsonProdutoRepository` ganhou `substituirTodos` e `limpar`
+  (usados pelo repositório offline-first) e a exportação nomeada da classe.

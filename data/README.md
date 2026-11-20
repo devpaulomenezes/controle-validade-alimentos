@@ -26,3 +26,11 @@ Fila FIFO de operações pendentes de sincronização, persistida em `fila_sincr
 - `removerOperacao(idOperacao)`: remove o item; se não existir, não faz nada.
 - `quantidade()`: tamanho da fila (0 se não existir).
 - `limpar()`: esvazia a fila e salva.
+
+## JsonProdutoRepository: `substituirTodos` e `limpar` (APP-04, Etapa 2)
+
+Dois métodos novos no cache local, usados pelo `OfflineFirstProdutoRepository` (APP-05). As telas não os chamam.
+
+- `substituirTodos(produtos)`: grava a lista recebida como substituto completo de `produtos.json`. Cada item é convertido em `Produto`, então campos fora do contrato (como o `usuarioId` devolvido pela API) não são gravados. Só deve ser usado com a fila do usuário vazia (regra da APP-05), para não apagar alterações offline ainda não enviadas. Um valor que não é lista lança erro e preserva a base.
+- `limpar()`: grava uma lista vazia em `produtos.json` (logout, APP-07), para um usuário não ver os produtos do anterior. É idempotente: sem arquivo existente, só cria a base vazia, sem erro. Falha de gravação é propagada, como em `salvar`/`atualizar`/`remover`.
+- Além do singleton (`export default new JsonProdutoRepository()`), a classe é exportada com nome (`export class JsonProdutoRepository`), para criar instâncias nos testes. Todas as instâncias usam o mesmo arquivo `produtos.json`.

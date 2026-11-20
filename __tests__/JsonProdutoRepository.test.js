@@ -4,9 +4,10 @@
  * Valida a persistência em JSON simulando o módulo expo-file-system/legacy em memória.
  */
 import * as FileSystem from 'expo-file-system/legacy';
-import repositorio from '../data/JsonProdutoRepository';
+import repositorio, { JsonProdutoRepository } from '../data/JsonProdutoRepository';
 
 import Produto from '../data/Produto';
+import ProdutoRepository from '../data/ProdutoRepository';
 
 /**
  * Variável de módulo que simula o sistema de arquivos em memória.
@@ -304,6 +305,135 @@ describe('JsonProdutoRepository', () => {
 
       expect(FileSystem.writeAsStringAsync).not.toHaveBeenCalled();
       expect(armazenamento[CAMINHO]).toBe(baseCorrompida);
+    });
+  });
+
+  describe('substituirTodos e limpar (APP-04)', () => {
+    const CAMINHO = '/documentos-teste/produtos.json';
+
+    // Formato devolvido pela API: inclui usuarioId, que não faz parte do contrato.
+    const dadosRemotos = [
+      {
+        id: 'r1',
+        nome: 'Leite',
+        quantidade: 2,
+        dataDeValidade: '2026-12-01',
+        fotoUri: null,
+        dataDeCadastro: '2026-11-01T10:00:00.000Z',
+        usuarioId: 'u1',
+      },
+      {
+        id: 'r2',
+        nome: 'Arroz',
+        quantidade: 1,
+        dataDeValidade: '2027-01-15',
+        fotoUri: 'file:///documentos-teste/fotos/arroz.jpg',
+        dataDeCadastro: '2026-11-02T10:00:00.000Z',
+        usuarioId: 'u1',
+      },
+    ];
+
+    function produtoLocal(id) {
+      return new Produto({
+        id,
+        nome: `Produto ${id}`,
+        quantidade: 1,
+        dataDeValidade: '2026-12-10',
+        fotoUri: null,
+        dataDeCadastro: '2026-11-10T08:00:00.000Z',
+      });
+    }
+
+    let consoleErro;
+
+    beforeEach(() => {
+      consoleErro = jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleErro.mockRestore();
+    });
+
+    it('substituirTodos grava exatamente a lista recebida, convertida em Produto', async () => {
+      await repositorio.salvar(produtoLocal('antigo'));
+
+      await repositorio.substituirTodos(dadosRemotos);
+
+      const produtos = await repositorio.listar();
+      // Substitui (não acrescenta): o produto antigo some.
+      expect(produtos.map((p) => p.id)).toEqual(['r1', 'r2']);
+      produtos.forEach((p) => expect(p).toBeInstanceOf(Produto));
+      expect(produtos[1]).toEqual(new Produto(dadosRemotos[1]));
+      // Gravado já como Produto: campos fora do contrato (usuarioId) ficam de fora.
+      const gravado = JSON.parse(armazenamento[CAMINHO]);
+      expect(gravado).toEqual(
+        dadosRemotos.map(({ id, nome, quantidade, dataDeValidade, fotoUri, dataDeCadastro }) => ({
+          id,
+          nome,
+          quantidade,
+          dataDeValidade,
+          fotoUri,
+          dataDeCadastro,
+        }))
+      );
+    });
+
+    it('substituirTodos([]) grava uma lista vazia, e listar() depois retorna []', async () => {
+      await repositorio.salvar(produtoLocal('a'));
+
+      await repositorio.substituirTodos([]);
+
+      expect(armazenamento[CAMINHO]).toBe('[]');
+      expect(await repositorio.listar()).toEqual([]);
+    });
+
+    it('substituirTodos com um valor que não é lista lança erro e preserva a base', async () => {
+      await repositorio.salvar(produtoLocal('a'));
+      const antes = armazenamento[CAMINHO];
+
+      await expect(repositorio.substituirTodos(null)).rejects.toThrow(/lista de produtos/);
+      await expect(repositorio.substituirTodos({ id: 'x' })).rejects.toThrow(/lista de produtos/);
+
+      expect(armazenamento[CAMINHO]).toBe(antes);
+    });
+
+    it('limpar() remove o conteúdo de produtos.json, e listar() depois retorna []', async () => {
+      await repositorio.salvar(produtoLocal('a'));
+      await repositorio.salvar(produtoLocal('b'));
+
+      await repositorio.limpar();
+
+      expect(armazenamento[CAMINHO]).toBe('[]');
+      expect(await repositorio.listar()).toEqual([]);
+    });
+
+    it('limpar() é idempotente: sem arquivo existente, não lança erro', async () => {
+      expect(Object.prototype.hasOwnProperty.call(armazenamento, CAMINHO)).toBe(false);
+
+      await expect(repositorio.limpar()).resolves.toBeUndefined();
+      await expect(repositorio.limpar()).resolves.toBeUndefined();
+
+      expect(await repositorio.listar()).toEqual([]);
+    });
+
+    it('limpar() propaga a falha de gravação', async () => {
+      await repositorio.salvar(produtoLocal('a'));
+      FileSystem.writeAsStringAsync.mockRejectedValueOnce(new Error('disco cheio'));
+
+      await expect(repositorio.limpar()).rejects.toThrow('disco cheio');
+      expect(await repositorio.listar()).toHaveLength(1);
+    });
+
+    it('exporta a classe nomeada JsonProdutoRepository, e o export default é instância dela', async () => {
+      expect(typeof JsonProdutoRepository).toBe('function');
+      expect(repositorio).toBeInstanceOf(JsonProdutoRepository);
+      expect(repositorio).toBeInstanceOf(ProdutoRepository);
+
+      const instancia = new JsonProdutoRepository();
+      expect(instancia).not.toBe(repositorio);
+      // Mesma persistência (produtos.json): o que uma grava, a outra lê.
+      await instancia.substituirTodos(dadosRemotos);
+      expect((await repositorio.listar()).map((p) => p.id)).toEqual(['r1', 'r2']);
     });
   });
 });

@@ -22,7 +22,11 @@ function interpretarConteudo(conteudo) {
   return dados.map((p) => new Produto(p));
 }
 
-class JsonProdutoRepository extends ProdutoRepository {
+/**
+ * Exportada também como classe nomeada (APP-04) para permitir criar instâncias
+ * nos testes; as telas usam o singleton do export default.
+ */
+export class JsonProdutoRepository extends ProdutoRepository {
   /**
    * Arquivo inexistente (primeira execução) devolve []. Arquivo existente com
    * erro de leitura ou JSON inválido LANÇA erro explícito — nunca devolve [],
@@ -76,6 +80,35 @@ class JsonProdutoRepository extends ProdutoRepository {
   async buscarPorId(id) {
     const produtos = await this.listar();
     return produtos.find((p) => p.id === id) ?? null;
+  }
+
+  /**
+   * Substitui todo o conteúdo de produtos.json pela lista recebida (APP-04).
+   * Usado só pelo OfflineFirstProdutoRepository (APP-05), com a fila do
+   * usuário vazia, para espelhar a base do servidor — as telas não chamam.
+   * Cada item vira um Produto (campos fora do contrato, como o usuarioId da
+   * API, são descartados). Um valor que não é lista lança erro e preserva a base.
+   *
+   * @param {Array<Object>} produtos - Lista completa que passa a ser o cache local.
+   * @returns {Promise<void>}
+   */
+  async substituirTodos(produtos) {
+    if (!Array.isArray(produtos)) {
+      throw new Error('substituirTodos() espera uma lista de produtos.');
+    }
+    await this.#gravar(produtos.map((p) => new Produto(p)));
+  }
+
+  /**
+   * Remove o conteúdo de produtos.json, gravando uma lista vazia (APP-04).
+   * Usado no logout (APP-07), para um usuário não ver os produtos do anterior.
+   * Idempotente: sem arquivo existente, apenas cria a base vazia, sem erro.
+   * Falha de gravação é propagada (como em salvar/atualizar/remover).
+   *
+   * @returns {Promise<void>}
+   */
+  async limpar() {
+    await this.#gravar([]);
   }
 
   async #gravar(produtos) {
