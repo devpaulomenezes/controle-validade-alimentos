@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { cores, situacoes, espacamento, raio, fonte } from '../theme/theme';
+import { espacamento, raio, fonte } from '../theme/theme';
+import { useTema } from '../theme/ThemeContext';
 import { formatarDataBR } from '../utils/formatoData';
 
 /**
  * Cartão de um produto na listagem.
  *
  * O cartão NÃO calcula datas: a situação chega pronta (calculada pelo
- * ServicoValidade).
+ * ServicoValidade). As cores vêm do tema ativo (TEMA-01), via useTema().
  *
  * @param {Object} props
  * @param {import('../data/Produto').default} props.produto - Produto do contrato da issue #1.
@@ -17,6 +18,8 @@ import { formatarDataBR } from '../utils/formatoData';
  * @param {(produto) => void} [props.onEditar] - Quando informado, mostra o botão "Editar".
  */
 export default function ProdutoCard({ produto, situacao, onRemover, onPress, onEditar }) {
+  const { cores, situacoes } = useTema();
+  const styles = useMemo(() => criarEstilos(cores), [cores]);
   // Guarda a URI que falhou (e não um booleano): quando a foto muda, a nova
   // URI é diferente da que falhou e volta a ser exibida, sem precisar de efeito.
   const [uriComErro, setUriComErro] = useState(null);
@@ -93,81 +96,83 @@ export default function ProdutoCard({ produto, situacao, onRemover, onPress, onE
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    backgroundColor: cores.superficie,
-    borderRadius: raio.md,
-    borderLeftWidth: 6,
-    padding: espacamento.md,
-    marginBottom: espacamento.sm,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-  },
-  foto: {
-    width: 64,
-    height: 64,
-    borderRadius: raio.sm,
-    marginRight: espacamento.md,
-    backgroundColor: cores.fundo,
-  },
-  placeholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: cores.borda,
-  },
-  iconePlaceholder: {
-    fontSize: 28,
-    textAlign: 'center',
-  },
-  info: {
-    flex: 1,
-  },
-  nome: {
-    fontSize: fonte.media,
-    fontWeight: 'bold',
-    color: cores.texto,
-    marginBottom: espacamento.xs,
-  },
-  detalhe: {
-    fontSize: fonte.normal,
-    color: cores.textoSecundario,
-  },
-  selo: {
-    alignSelf: 'flex-start',
-    borderRadius: raio.pill,
-    paddingHorizontal: espacamento.sm + 2,
-    paddingVertical: 3,
-    marginTop: espacamento.sm,
-  },
-  textoSelo: {
-    fontSize: fonte.pequena,
-    fontWeight: 'bold',
-  },
-  corpo: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  acoes: {
-    marginLeft: espacamento.sm,
-    gap: espacamento.sm,
-    alignItems: 'flex-end',
-  },
-  botaoAcao: {
-    paddingVertical: espacamento.xs,
-  },
-  textoEditar: {
-    fontSize: fonte.pequena,
-    fontWeight: 'bold',
-    color: cores.primaria,
-  },
-  textoRemover: {
-    fontSize: fonte.pequena,
-    fontWeight: 'bold',
-    color: cores.erro,
-  },
-});
+function criarEstilos(cores) {
+  return StyleSheet.create({
+    card: {
+      flexDirection: 'row',
+      backgroundColor: cores.superficie,
+      borderRadius: raio.md,
+      borderLeftWidth: 6,
+      padding: espacamento.md,
+      marginBottom: espacamento.sm,
+      elevation: 1,
+      shadowColor: cores.sombra,
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+    },
+    foto: {
+      width: 64,
+      height: 64,
+      borderRadius: raio.sm,
+      marginRight: espacamento.md,
+      backgroundColor: cores.fundo,
+    },
+    placeholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: cores.borda,
+    },
+    iconePlaceholder: {
+      fontSize: 28,
+      textAlign: 'center',
+    },
+    info: {
+      flex: 1,
+    },
+    nome: {
+      fontSize: fonte.media,
+      fontWeight: 'bold',
+      color: cores.texto,
+      marginBottom: espacamento.xs,
+    },
+    detalhe: {
+      fontSize: fonte.normal,
+      color: cores.textoSecundario,
+    },
+    selo: {
+      alignSelf: 'flex-start',
+      borderRadius: raio.pill,
+      paddingHorizontal: espacamento.sm + 2,
+      paddingVertical: 3,
+      marginTop: espacamento.sm,
+    },
+    textoSelo: {
+      fontSize: fonte.pequena,
+      fontWeight: 'bold',
+    },
+    corpo: {
+      flex: 1,
+      flexDirection: 'row',
+    },
+    acoes: {
+      marginLeft: espacamento.sm,
+      gap: espacamento.sm,
+      alignItems: 'flex-end',
+    },
+    botaoAcao: {
+      paddingVertical: espacamento.xs,
+    },
+    textoEditar: {
+      fontSize: fonte.pequena,
+      fontWeight: 'bold',
+      color: cores.primaria,
+    },
+    textoRemover: {
+      fontSize: fonte.pequena,
+      fontWeight: 'bold',
+      color: cores.erro,
+    },
+  });
+}

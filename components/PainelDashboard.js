@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { cores, situacoes, espacamento, raio, fonte } from '../theme/theme';
+import { espacamento, raio, fonte } from '../theme/theme';
+import { useTema } from '../theme/ThemeContext';
 
+/** Contadores da linha de baixo; `filtro` é a chave do filtro da listagem. */
 const CONTADORES = [
-  { campo: 'vencidos', filtro: 'vencido', rotulo: 'Vencidos', cor: situacoes.vencido.cor },
-  { campo: 'venceEsteMes', filtro: 'venceEsteMes', rotulo: 'Este mês', cor: situacoes.venceEsteMes.cor },
-  { campo: 'total', filtro: 'todas', rotulo: 'Total', cor: cores.texto },
+  { campo: 'vencidos', filtro: 'vencido', rotulo: 'Vencidos' },
+  { campo: 'venceEsteMes', filtro: 'venceEsteMes', rotulo: 'Este mês' },
+  { campo: 'total', filtro: 'todas', rotulo: 'Total' },
 ];
 
 /**
  * Painel do topo da tela inicial (issue #10): destaque para os produtos que
  * vencem esta semana e contadores de vencidos, deste mês e do total.
+ * As cores vêm do tema ativo (TEMA-01), via useTema().
  *
  * O painel NÃO calcula nada: o resumo chega pronto do
  * ServicoDashboard.resumirProdutos.
@@ -20,6 +23,8 @@ const CONTADORES = [
  * @param {(filtro: string) => void} [props.onSelecionar] - Recebe a chave do filtro da listagem ao tocar num contador.
  */
 export default function PainelDashboard({ resumo, onSelecionar }) {
+  const { cores, situacoes } = useTema();
+  const styles = useMemo(() => criarEstilos(cores), [cores]);
   const semana = situacoes.venceEstaSemana;
   const qtdSemana = resumo.venceEstaSemana;
 
@@ -39,7 +44,7 @@ export default function PainelDashboard({ resumo, onSelecionar }) {
       </TouchableOpacity>
 
       <View style={styles.linha}>
-        {CONTADORES.map(({ campo, filtro, rotulo, cor }) => (
+        {CONTADORES.map(({ campo, filtro, rotulo }) => (
           <TouchableOpacity
             key={campo}
             style={styles.contador}
@@ -48,7 +53,10 @@ export default function PainelDashboard({ resumo, onSelecionar }) {
             accessibilityRole="button"
             accessibilityLabel={`${rotulo}: ${resumo[campo]}`}
           >
-            <Text style={[styles.numero, { color: cor }]}>{resumo[campo]}</Text>
+            {/* "Total" não é uma situação: usa a cor do texto. */}
+            <Text style={[styles.numero, { color: situacoes[filtro]?.cor ?? cores.texto }]}>
+              {resumo[campo]}
+            </Text>
             <Text style={styles.rotulo}>{rotulo}</Text>
           </TouchableOpacity>
         ))}
@@ -57,48 +65,50 @@ export default function PainelDashboard({ resumo, onSelecionar }) {
   );
 }
 
-const styles = StyleSheet.create({
-  painel: {
-    marginBottom: espacamento.md,
-    gap: espacamento.sm,
-  },
-  destaque: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: raio.md,
-    paddingHorizontal: espacamento.md,
-    paddingVertical: espacamento.sm + 2,
-    gap: espacamento.sm + 2,
-  },
-  numeroDestaque: {
-    fontSize: fonte.titulo + 6,
-    fontWeight: 'bold',
-  },
-  textoDestaque: {
-    flex: 1,
-    fontSize: fonte.normal,
-    fontWeight: '600',
-  },
-  linha: {
-    flexDirection: 'row',
-    gap: espacamento.sm,
-  },
-  contador: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: cores.superficie,
-    borderWidth: 1,
-    borderColor: cores.borda,
-    borderRadius: raio.md,
-    paddingVertical: espacamento.sm,
-  },
-  numero: {
-    fontSize: fonte.titulo,
-    fontWeight: 'bold',
-  },
-  rotulo: {
-    fontSize: fonte.pequena,
-    color: cores.textoSecundario,
-  },
-});
+function criarEstilos(cores) {
+  return StyleSheet.create({
+    painel: {
+      marginBottom: espacamento.md,
+      gap: espacamento.sm,
+    },
+    destaque: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderRadius: raio.md,
+      paddingHorizontal: espacamento.md,
+      paddingVertical: espacamento.sm + 2,
+      gap: espacamento.sm + 2,
+    },
+    numeroDestaque: {
+      fontSize: fonte.titulo + 6,
+      fontWeight: 'bold',
+    },
+    textoDestaque: {
+      flex: 1,
+      fontSize: fonte.normal,
+      fontWeight: '600',
+    },
+    linha: {
+      flexDirection: 'row',
+      gap: espacamento.sm,
+    },
+    contador: {
+      flex: 1,
+      alignItems: 'center',
+      backgroundColor: cores.superficie,
+      borderWidth: 1,
+      borderColor: cores.borda,
+      borderRadius: raio.md,
+      paddingVertical: espacamento.sm,
+    },
+    numero: {
+      fontSize: fonte.titulo,
+      fontWeight: 'bold',
+    },
+    rotulo: {
+      fontSize: fonte.pequena,
+      color: cores.textoSecundario,
+    },
+  });
+}

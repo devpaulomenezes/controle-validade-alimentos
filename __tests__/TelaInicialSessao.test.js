@@ -10,6 +10,7 @@ import TestRenderer, { act } from 'react-test-renderer';
 import TelaInicial from '../app/TelaInicial';
 import repositorio from '../data/OfflineFirstProdutoRepository';
 import AuthService from '../services/AuthService';
+import { ThemeProvider } from '../theme/ThemeContext';
 
 jest.mock('../data/OfflineFirstProdutoRepository', () => ({
   __esModule: true,
@@ -40,6 +41,14 @@ jest.mock('../services/CameraService', () => ({
 // useFocusEffect reexecuta o efeito quando a identidade do callback muda; o
 // mock reproduz isso com useEffect([efeito]), então um callback instável
 // faria sincronizar() ser chamado em loop e o teste de foco falharia.
+// O ThemeProvider (TEMA-01) lê tema.json ao montar: sem o arquivo, usa o tema claro.
+jest.mock('expo-file-system/legacy', () => ({
+  documentDirectory: '/documentos-teste/',
+  getInfoAsync: jest.fn(async () => ({ exists: false })),
+  readAsStringAsync: jest.fn(async () => ''),
+  writeAsStringAsync: jest.fn(async () => {}),
+}));
+
 jest.mock('@react-navigation/native', () => {
   const { useEffect } = require('react');
   return { useFocusEffect: (efeito) => useEffect(efeito, [efeito]) };
@@ -52,11 +61,13 @@ async function renderizar() {
   let renderer;
   await act(async () => {
     renderer = TestRenderer.create(
-      <TelaInicial
-        navigation={navigation}
-        aoDeslogar={aoDeslogar}
-        aoSessaoExpirada={aoSessaoExpirada}
-      />
+      <ThemeProvider>
+        <TelaInicial
+          navigation={navigation}
+          aoDeslogar={aoDeslogar}
+          aoSessaoExpirada={aoSessaoExpirada}
+        />
+      </ThemeProvider>
     );
   });
   return {

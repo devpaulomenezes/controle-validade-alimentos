@@ -12,6 +12,7 @@ import TestRenderer, { act } from 'react-test-renderer';
 import IndicadorSincronizacao from '../components/IndicadorSincronizacao';
 import TelaInicial from '../app/TelaInicial';
 import repositorio from '../data/OfflineFirstProdutoRepository';
+import { ThemeProvider } from '../theme/ThemeContext';
 
 jest.mock('../data/OfflineFirstProdutoRepository', () => ({
   __esModule: true,
@@ -37,6 +38,14 @@ jest.mock('../services/NotificacoesService', () => ({
 jest.mock('../services/CameraService', () => ({
   __esModule: true,
   default: { removerFoto: jest.fn() },
+}));
+
+// O ThemeProvider (TEMA-01) lê tema.json ao montar: sem o arquivo, usa o tema claro.
+jest.mock('expo-file-system/legacy', () => ({
+  documentDirectory: '/documentos-teste/',
+  getInfoAsync: jest.fn(async () => ({ exists: false })),
+  readAsStringAsync: jest.fn(async () => ''),
+  writeAsStringAsync: jest.fn(async () => {}),
 }));
 
 // Como o useFocusEffect: roda ao montar e quando a identidade do callback muda.
@@ -156,7 +165,9 @@ describe('TelaInicial: banner de sincronização e puxar para atualizar (APP-08)
     let renderer;
     await act(async () => {
       renderer = TestRenderer.create(
-        <TelaInicial navigation={navigation} aoDeslogar={jest.fn()} aoSessaoExpirada={jest.fn()} />
+        <ThemeProvider>
+          <TelaInicial navigation={navigation} aoDeslogar={jest.fn()} aoSessaoExpirada={jest.fn()} />
+        </ThemeProvider>
       );
     });
     const util = utilitarios(renderer);

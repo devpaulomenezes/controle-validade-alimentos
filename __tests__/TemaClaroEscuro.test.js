@@ -1,12 +1,14 @@
-/* global describe, it, expect, beforeEach, afterEach, jest */
+/* global describe, it, expect, beforeEach, afterEach, jest, __dirname */
 /**
  * Testes do tema claro e escuro (TEMA-01): exportações estáticas preservadas,
  * paleta clara por padrão, troca para a escura sem reiniciar, persistência
  * em tema.json (inclusive arquivo ausente ou inválido), erro do hook fora do
  * ThemeProvider e o botão de alternância no cabeçalho do App.js.
  */
+import fs from 'fs';
+import path from 'path';
 import React, { useEffect } from 'react';
-import { Alert, Text } from 'react-native';
+import { Alert, Text, StyleSheet } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
@@ -22,6 +24,9 @@ import {
 } from '../theme/theme';
 import { ThemeProvider, useTema, CAMINHO_PREFERENCIA_TEMA } from '../theme/ThemeContext';
 import App from '../App';
+import ProdutoCard from '../components/ProdutoCard';
+import PainelDashboard from '../components/PainelDashboard';
+import EmptyState from '../components/EmptyState';
 import AuthService from '../services/AuthService';
 
 const mockArquivos = {};
@@ -231,6 +236,73 @@ describe('Tema claro e escuro (TEMA-01)', () => {
           TestRenderer.create(<Consumidor aoReceberTema={() => {}} />);
         });
       }).toThrow(/ThemeProvider/);
+    });
+  });
+
+  describe('componentes que usam useTema() (ProdutoCard, PainelDashboard, EmptyState)', () => {
+    const PRODUTO = {
+      id: 'p1',
+      nome: 'Leite',
+      quantidade: 2,
+      dataDeValidade: '2030-01-01',
+      fotoUri: null,
+      dataDeCadastro: '2026-11-01T10:00:00.000Z',
+    };
+    const RESUMO = { total: 3, vencidos: 1, venceEstaSemana: 1, venceEsteMes: 1, ok: 0 };
+
+    it('trocam de cores quando o tema alterna', async () => {
+      const registro = { atual: null };
+      let renderer;
+      await act(async () => {
+        renderer = TestRenderer.create(
+          <ThemeProvider>
+            <Consumidor aoReceberTema={(tema) => (registro.atual = tema)} />
+            <ProdutoCard produto={PRODUTO} situacao="vencido" onEditar={() => {}} />
+            <PainelDashboard resumo={RESUMO} />
+            <EmptyState />
+          </ThemeProvider>
+        );
+      });
+      const estiloDoTexto = (texto) =>
+        StyleSheet.flatten(renderer.root.findAll((no) => no.type === 'Text' && no.props.children === texto)[0].props.style);
+      const coresAtuais = () => ({
+        nomeDoProduto: estiloDoTexto('Leite').color,
+        selo: estiloDoTexto('Vencido').color,
+        editar: estiloDoTexto('Editar').color,
+        rotuloDoContador: estiloDoTexto('Total').color,
+        mensagemVazia: estiloDoTexto('Nenhum produto cadastrado').color,
+      });
+
+      expect(coresAtuais()).toEqual({
+        nomeDoProduto: cores.texto,
+        selo: situacoes.vencido.cor,
+        editar: cores.primaria,
+        rotuloDoContador: cores.textoSecundario,
+        mensagemVazia: cores.texto,
+      });
+
+      await act(async () => {
+        registro.atual.alternarTema();
+      });
+
+      expect(coresAtuais()).toEqual({
+        nomeDoProduto: coresEscuras.texto,
+        selo: situacoesEscuras.vencido.cor,
+        editar: coresEscuras.primaria,
+        rotuloDoContador: coresEscuras.textoSecundario,
+        mensagemVazia: coresEscuras.texto,
+      });
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('não têm cor fixa fora do tema', () => {
+      for (const arquivo of ['ProdutoCard.js', 'PainelDashboard.js', 'EmptyState.js']) {
+        const fonte = fs.readFileSync(path.join(__dirname, '..', 'components', arquivo), 'utf8');
+        expect({ arquivo, corFixa: fonte.match(/#[0-9a-f]{3,8}|rgba?\(/i) }).toEqual({ arquivo, corFixa: null });
+        expect(fonte).toMatch(/useTema\(\)/);
+      }
     });
   });
 
