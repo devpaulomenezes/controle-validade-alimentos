@@ -401,6 +401,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - **`CameraService.removerFoto` (`__tests__/CameraService.test.js`, issue #19)**: apaga dentro de `documentDirectory/fotos/`, não apaga fora dessa pasta, ignora uri vazia e não lança exceção se o arquivo não existir ou a exclusão falhar.
 - **`IntegracaoEdicao` (`__tests__/IntegracaoEdicao.test.js`, issue #19)**: edita um produto da base de 5 itens e confere a listagem, a ordenação, a situação calculada, os contadores do dashboard e o reagendamento do alerta.
 - **`TelaCadastroEdicao` (`__tests__/TelaCadastroEdicao.test.js`, issue #19)**: renderiza a `TelaCadastro` (com `react-test-renderer`, já instalado pelo `jest-expo`) nos modos criação e edição — pré-preenchimento, `atualizar()` com `id` e `dataDeCadastro` preservados, troca e remoção de foto com apagamento da antiga, falha de gravação sem "Produto salvo" e sem alterar a base, e descarte da foto nova quando `atualizar()` falha.
+- **`OfflineFirstProdutoRepository` (`__tests__/OfflineFirstProdutoRepository.test.js`, APP-05)**: com cache local, fila e API fakes em memória — escritas e leituras sem conexão sem lançar erro, um item na fila por escrita (com `usuarioId`), escrita que não espera a API, envio na ordem de criação com o mapeamento de cada tipo, retomada sem reenvio após falha no meio, `5xx` e `401` interrompendo e mantendo a fila, `4xx` descartando só o item, itens de outros usuários intocados, `substituirTodos` só com a fila vazia, chamadas simultâneas sem envio duplicado, trava liberada após erro e escrita feita durante o download preservada no cache.
 
 ## Histórico de decisões
 
@@ -457,3 +458,6 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   Entregue em `dev` (commit `9bf785f`) e integrada à `main` (merge `1aa57c3`).
 - 2026-11-20 — APP-04 (#26) concluída: `JsonProdutoRepository` ganhou `substituirTodos` e `limpar`
   (usados pelo repositório offline-first) e a exportação nomeada da classe.
+- 2026-11-20 — APP-05 (#27) concluída: `OfflineFirstProdutoRepository` coordena cache local, fila
+  offline e API — escritas locais primeiro e envio em segundo plano, fila FIFO por usuário, `401`
+  sinalizado para a tela e cache substituído só com a fila vazia.
