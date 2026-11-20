@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { cores, espacamento, fonte, estilosBase } from '../theme/theme';
+import { espacamento, fonte } from '../theme/theme';
+import { useTema } from '../theme/ThemeContext';
 
 /**
  * Estado de lista vazia: ícone, mensagem e chamada para ação opcional.
+ * As cores vêm do tema ativo (TEMA-01), via useTema().
  *
  * @param {Object} props
  * @param {string} [props.icone] - Emoji exibido no topo.
@@ -19,6 +21,9 @@ export default function EmptyState({
   textoAcao,
   onAcao,
 }) {
+  const { cores, estilosBase } = useTema();
+  const styles = useMemo(() => criarEstilos(cores), [cores]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.icone}>{icone}</Text>
@@ -34,30 +39,32 @@ export default function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: espacamento.xl,
-    paddingHorizontal: espacamento.lg,
-  },
-  icone: {
-    fontSize: 56,
-    marginBottom: espacamento.md,
-  },
-  mensagem: {
-    fontSize: fonte.media,
-    fontWeight: 'bold',
-    color: cores.texto,
-    textAlign: 'center',
-  },
-  descricao: {
-    fontSize: fonte.normal,
-    color: cores.textoSecundario,
-    textAlign: 'center',
-    marginTop: espacamento.sm,
-  },
-  botao: {
-    marginTop: espacamento.lg,
-  },
-});
+function criarEstilos(cores) {
+  return StyleSheet.create({
+    container: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: espacamento.xl,
+      paddingHorizontal: espacamento.lg,
+    },
+    icone: {
+      fontSize: 56,
+      marginBottom: espacamento.md,
+    },
+    mensagem: {
+      fontSize: fonte.media,
+      fontWeight: 'bold',
+      color: cores.texto,
+      textAlign: 'center',
+    },
+    descricao: {
+      fontSize: fonte.normal,
+      color: cores.textoSecundario,
+      textAlign: 'center',
+      marginTop: espacamento.sm,
+    },
+    botao: {
+      marginTop: espacamento.lg,
+    },
+  });
+}

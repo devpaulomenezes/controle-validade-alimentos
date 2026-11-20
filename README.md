@@ -13,7 +13,8 @@ https://github.com/user-attachments/assets/20aa1911-a97f-4cdf-a4ca-163aac567105
 ## Decisões do projeto (fonte de verdade)
 
 - **Plataforma:** Android · **Stack:** React Native (JSX) com Expo, testado no Expo Go
-- **Navegação:** React Navigation (native stack, rotas: Inicial, Cadastro e TelaDetalhe).
+- **Navegação:** React Navigation (native stack, rotas: Inicial, Cadastro e TelaDetalhe; sem
+  sessão salva, apenas Login — APP-07).
 - **Escopo da Etapa 1:** CRUD completo com persistência local em JSON (expo-file-system)
 - **Escopo da Etapa 2:** persistência em banco REMOTO via API (mesma interface do repositório)
 - **Identificação do produto:** foto do alimento/rótulo pela câmera. Sem código de barras e sem
@@ -21,6 +22,8 @@ https://github.com/user-attachments/assets/20aa1911-a97f-4cdf-a4ca-163aac567105
   do MVP por instabilidade técnica.
 - **Notificações:** locais, 3 dias antes do vencimento (expo-notifications; atenção à permissão
   no Android 13+)
+- **Tema claro e escuro (TEMA-01, opcional da P1):** alternância pelo botão do cabeçalho, sem
+  reiniciar o app; a preferência fica salva em `tema.json`.
 
 ## Arquitetura e padrão de projeto
 
@@ -32,8 +35,16 @@ Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
                                                               ↓
                                                   produtos.json (FileSystem do dispositivo)
 
+Na Etapa 2 (APP-07), as telas passaram a usar o `OfflineFirstProdutoRepository`, que implementa a
+mesma interface e coordena três fontes:
+
+    Tela → OfflineFirstProdutoRepository ─┬→ JsonProdutoRepository (cache local, produtos.json)
+                                          ├→ FilaSincronizacao (alterações offline, fila_sincronizacao.json)
+                                          └→ ApiProdutoRepository → API remota (EXPO_PUBLIC_API_URL)
+
 - **Por que Repository:** as telas nunca acessam a origem dos dados diretamente. Na Etapa 2,
-  troca-se apenas a implementação (JsonProdutoRepository → ApiProdutoRepository) sem alterar telas.
+  trocou-se apenas a implementação importada pelas telas (JsonProdutoRepository →
+  OfflineFirstProdutoRepository), sem mudar o CRUD das telas.
 - **Singleton** no repositório: fonte de verdade única para todas as telas.
 - **Modelo:** Produto = id, nome, quantidade, dataDeValidade, fotoUri, dataDeCadastro.
   Regras de vencimento (dias restantes; vencido / esta semana / este mês / ok) centralizadas
@@ -89,7 +100,11 @@ foi concluída na issue #3 — ver seção abaixo.
     `remover(id)` com id inexistente continua sem erro (regrava a lista sem alteração).
   - `salvar()` devolve o produto gravado (com o `id` gerado), para o alerta de notificação
     levar o id real (`produtoId`); o contrato `ProdutoRepository` não mudou.
-- **Usado pelas telas** `TelaInicial`, `TelaCadastro` e `TelaDetalhe` (a de detalhe, desde a #19).
+- **Usado pelas telas** `TelaInicial`, `TelaCadastro` e `TelaDetalhe` (a de detalhe, desde a #19)
+  até a APP-07; desde então, é o cache local do `OfflineFirstProdutoRepository`.
+- **Etapa 2 (APP-04, #26)**: ganhou `substituirTodos(produtos)` (espelha a base do servidor;
+  usado só pelo `OfflineFirstProdutoRepository`, com a fila vazia) e `limpar()` (logout), e a
+  classe passou a ser exportada também com nome. Detalhes em `data/README.md`.
 
 ## Justificativa da tecnologia de persistência (RT02)
 
@@ -153,9 +168,9 @@ Os dados sobrevivem ao fechamento e à reabertura do aplicativo, o que foi valid
 
 ## Estrutura de pastas (implementada na issue #1)
 
-    app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js e TelaDetalhe.js)
-    components/    → componentes reutilizáveis (ProdutoCard.js, EmptyState.js, PainelDashboard.js)
-    theme/         → tema visual central (theme.js)
+    app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js, TelaDetalhe.js e TelaLogin.js)
+    components/    → componentes reutilizáveis (ProdutoCard.js, EmptyState.js, PainelDashboard.js, IndicadorSincronizacao.js)
+    theme/         → tema visual central (theme.js) e tema claro/escuro (ThemeContext.js, TEMA-01)
     utils/         → utilitários auxiliares (formatoData.js)
     services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
@@ -334,6 +349,37 @@ A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi remo
   `App.js` e o botão "Testes" do cabeçalho foram removidos; o fluxo real cobre as duas validações.
 - **Testes unitários da #6** continuam passando após as integrações (`npx jest`).
 
+## Interface: tema claro e escuro (TEMA-01)
+
+Item opcional da P1. O botão 🌙/☀️ do cabeçalho alterna o tema na hora, sem reiniciar o app, e a
+escolha continua valendo depois de fechar e reabrir.
+
+- **`theme/theme.js`**: as exportações estáticas (`cores`, `situacoes`, `estilosBase`,
+  `espacamento`, `raio` e `fonte`) continuam iguais, com a paleta clara. Foram acrescentados a
+  paleta escura (`coresEscuras` e `situacoesEscuras`, com as mesmas chaves), `criarEstilosBase(paleta)`
+  e `temas` (`claro` e `escuro`). Na paleta escura, todos os pares de texto e fundo usados no app
+  têm contraste de pelo menos 4,5:1 (WCAG AA).
+- **`theme/ThemeContext.js`**: `ThemeProvider` (envolve o app no `App.js`) e o hook `useTema()`, que
+  devolve `{ nome, escuro, cores, situacoes, estilosBase, alternarTema, carregando }`. Fora do
+  `ThemeProvider`, `useTema()` lança um erro que explica o motivo.
+- **Persistência**: a preferência vai para `tema.json` (`{ "tema": "escuro" }`), na pasta de
+  documentos do app, via `expo-file-system/legacy` — o mesmo padrão de `produtos.json`. Arquivo
+  ausente ou inválido assume o tema claro; falha ao gravar não desfaz a troca. O `App.js` espera a
+  leitura antes de mostrar as telas, para não abrir no tema errado.
+- **Cabeçalho (`App.js`)**: as cores do cabeçalho, do fundo e do `NavigationContainer` seguem o
+  tema ativo. O botão fica no `headerRight` das telas; na `TelaInicial`, que define o próprio
+  `headerRight`, ele aparece ao lado do "+ Novo" (o `App.js` o passa pela prop `BotaoTema`).
+- **Componentes**: `ProdutoCard`, `PainelDashboard` e `EmptyState` obtêm cores, situações e estilos
+  base pelo `useTema()` e recriam os estilos (`useMemo`) quando a paleta muda; a sombra do cartão
+  também passou a vir do tema (`cores.sombra`). O banner `IndicadorSincronizacao` segue o mesmo padrão.
+- **Telas** (`TelaInicial`, `TelaCadastro`, `TelaDetalhe` e `TelaLogin`): seguem o tema ativo pelo
+  `useTemaOpcional()`, que fora do `ThemeProvider` devolve o tema claro em vez de lançar erro. Assim
+  os testes de tela, como o `TelaCadastroEdicao.test.js` (sem alteração), continuam renderizando
+  cada tela isoladamente. Os botões do cabeçalho usam `cores.textoCabecalho`, e o seletor de data
+  inline do iOS recebe `themeVariant`.
+- **Limitação conhecida**: os diálogos do sistema (`Alert` e o seletor de data) seguem o
+  `userInterfaceStyle: "light"` do `app.json` e continuam claros no tema escuro.
+
 ## Fluxo de trabalho Git (regra do grupo)
 
 - Desenvolvimento exclusivamente na branch **`dev`**
@@ -372,6 +418,15 @@ Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
 
 Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
 
+Desde a APP-07 o app abre na tela de login, então precisa da API (seção abaixo) para o primeiro
+acesso. Crie um arquivo `.env` na raiz do app com a URL da API, usando o IP do PC na rede (no
+celular, `localhost` aponta para o próprio aparelho), e reinicie o `npx expo start`:
+
+    EXPO_PUBLIC_API_URL=http://192.168.0.10:3000
+
+Depois do primeiro login, a sessão fica salva no aparelho e o app abre direto na lista, mesmo sem
+internet; as alterações feitas offline sobem quando a conexão volta.
+
 ## Executando o Backend
 
 ```bash
@@ -392,12 +447,18 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
     npx jest
 
 - **`ServicoValidade` (`__tests__/ServicoValidade.test.js`)**: testes das funções `calcularDiasRestantes` (passado, hoje e futuro) e `classificarSituacao` cobrindo todos os casos-limite da issue #4 (`vencido`, `venceEstaSemana`, `venceEsteMes` e `ok`).
-- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`. Na issue #19 foram acrescentados: `atualizar()` (substitui pelo id, mantém o total e preserva `dataDeCadastro`; id inexistente lança erro), `listar()` com JSON inválido ou falha de leitura (lança erro, não devolve `[]`), falha de escrita propagada para `salvar`/`atualizar`/`remover` e `salvar()` que não sobrescreve a base quando `listar()` falha.
+- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`. Na issue #19 foram acrescentados: `atualizar()` (substitui pelo id, mantém o total e preserva `dataDeCadastro`; id inexistente lança erro), `listar()` com JSON inválido ou falha de leitura (lança erro, não devolve `[]`), falha de escrita propagada para `salvar`/`atualizar`/`remover` e `salvar()` que não sobrescreve a base quando `listar()` falha. Na APP-04 (#26) foram acrescentados: `substituirTodos` (lista preenchida convertida em `Produto`, lista vazia e valor que não é lista), `limpar` (com e sem arquivo, e falha de gravação) e a exportação nomeada da classe.
 - **`IntegracaoEtapa1` (`__tests__/IntegracaoEtapa1.test.js`)**: testes de integração da Etapa 1 (issue #14) verificando as peças funcionando em conjunto (`JsonProdutoRepository`, `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`) no cenário completo de 5 produtos.
 - **`NotificacoesService` (`__tests__/NotificacoesService.test.js`, issue #19)**: `cancelarAlerta` cancela só as notificações do `produtoId` (sem lançar exceção quando não há nenhuma ou quando o cancelamento falha) e `agendarAlerta` inclui `produtoId` em `content.data`, tanto no alerta imediato quanto no agendado.
 - **`CameraService.removerFoto` (`__tests__/CameraService.test.js`, issue #19)**: apaga dentro de `documentDirectory/fotos/`, não apaga fora dessa pasta, ignora uri vazia e não lança exceção se o arquivo não existir ou a exclusão falhar.
 - **`IntegracaoEdicao` (`__tests__/IntegracaoEdicao.test.js`, issue #19)**: edita um produto da base de 5 itens e confere a listagem, a ordenação, a situação calculada, os contadores do dashboard e o reagendamento do alerta.
 - **`TelaCadastroEdicao` (`__tests__/TelaCadastroEdicao.test.js`, issue #19)**: renderiza a `TelaCadastro` (com `react-test-renderer`, já instalado pelo `jest-expo`) nos modos criação e edição — pré-preenchimento, `atualizar()` com `id` e `dataDeCadastro` preservados, troca e remoção de foto com apagamento da antiga, falha de gravação sem "Produto salvo" e sem alterar a base, e descarte da foto nova quando `atualizar()` falha.
+- **`OfflineFirstProdutoRepository` (`__tests__/OfflineFirstProdutoRepository.test.js`, APP-05)**: com cache local, fila e API fakes em memória — escritas e leituras sem conexão sem lançar erro, um item na fila por escrita (com `usuarioId`), escrita que não espera a API, envio na ordem de criação com o mapeamento de cada tipo, retomada sem reenvio após falha no meio, `5xx` e `401` interrompendo e mantendo a fila, `4xx` descartando só o item, itens de outros usuários intocados, `substituirTodos` só com a fila vazia, chamadas simultâneas sem envio duplicado, trava liberada após erro e escrita feita durante o download preservada no cache.
+- **`TelaLogin` (`__tests__/TelaLogin.test.js`, APP-06)**: renderiza a `TelaLogin` com o `AuthService` simulado — alternância entre "Entrar" e "Criar conta" (campo de nome e texto do botão), validações (campos vazios, nome no cadastro, e-mail sem `@`/domínio e senha curta, sem chamar o serviço), envio com sucesso (`aoAutenticar` uma vez, com o usuário), erro da API e falta de conexão em `Alert` (senha limpa) e estado de carregamento (`ActivityIndicator`, botão desabilitado e toque duplo sem envio duplicado).
+- **`AppSessao` (`__tests__/AppSessao.test.js`, APP-07)**: renderiza o `App.js` com o `NavigationContainer` e o native stack reais (telas simuladas) — sem sessão abre na `TelaLogin`; com sessão abre direto na lista; após o login a rota `Login` deixa de existir (o "voltar" não retorna a ela); "Sair" e sessão expirada voltam ao login, a segunda com o aviso.
+- **`TelaInicialSessao` (`__tests__/TelaInicialSessao.test.js`, APP-07)**: renderiza a `TelaInicial` com o repositório e o `AuthService` simulados — sincroniza uma única vez por foco (sem loop do `useFocusEffect`), "Sair" bloqueado com pendências na fila, "Sair" sem pendências na ordem limpar cache → logout → voltar ao login, falha ao limpar o cache sem deslogar, sessão expirada (`401`) apagando a sessão e falha de sincronização sem impedir a lista local. O teste do `OfflineFirstProdutoRepository` ganhou os casos de `quantidadePendente` e `limparCacheLocal`.
+- **`IndicadorSincronizacao` (`__tests__/IndicadorSincronizacao.test.js`, APP-08)**: o componente isolado (oculto sem pendências, singular e plural, "Sincronizando..." desabilitado, toque chamando `aoSincronizar` uma vez e nenhuma importação da fila ou de repositório) e a integração na `TelaInicial` (banner que some quando a fila esvazia, toque repetido sem sincronização duplicada, puxar a lista com o indicador até terminar — inclusive com uma sincronização já em andamento —, erro e `401` sem deixar "Sincronizando..." preso e lista vazia com banner e puxar para atualizar).
+- **`TemaClaroEscuro` (`__tests__/TemaClaroEscuro.test.js`, TEMA-01)**: exportações estáticas de `theme/theme.js` preservadas com a paleta clara, paleta escura com as mesmas chaves, tema claro por padrão (sem `tema.json`), troca para o escuro e de volta sem reiniciar, preferência gravada em `tema.json` e mantida ao reabrir, `tema.json` inválido ou com valor desconhecido assumindo o claro, falha de gravação sem desfazer a troca, alternância antes do fim da leitura respeitada, erro de `useTema()` fora do `ThemeProvider`, os componentes `ProdutoCard`, `PainelDashboard` e `EmptyState` trocando de cores com o tema (e sem cor fixa no código) o botão do cabeçalho do `App.js` alternando o tema, as quatro telas usando `useTemaOpcional()` sem cor fixa, `useTemaOpcional()` fora do provider devolvendo o tema claro e a `TelaLogin` trocando fundo e texto com o tema. Os testes da `TelaInicial` (`TelaInicialSessao` e `IndicadorSincronizacao`) passaram a renderizá-la dentro do `ThemeProvider`, como no app.
 
 ## Histórico de decisões
 
@@ -452,3 +513,20 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - 2026-11-16 — Issue #19 concluída: edição, tela de detalhe, robustez da persistência e limpeza de
   notificações e fotos. Validada no Expo Go (fluxos de edição, detalhe, remoção e persistência).
   Entregue em `dev` (commit `9bf785f`) e integrada à `main` (merge `1aa57c3`).
+- 2026-11-20 — APP-04 (#26) concluída: `JsonProdutoRepository` ganhou `substituirTodos` e `limpar`
+  (usados pelo repositório offline-first) e a exportação nomeada da classe.
+- 2026-11-20 — APP-05 (#27) concluída: `OfflineFirstProdutoRepository` coordena cache local, fila
+  offline e API — escritas locais primeiro e envio em segundo plano, fila FIFO por usuário, `401`
+  sinalizado para a tela e cache substituído só com a fila vazia.
+- 2026-11-20 — APP-06 (#28) concluída: `TelaLogin` com os modos "Entrar" e "Criar conta", validação
+  no formulário, carregamento no botão e erros em `Alert`; avisa o `App.js` por `aoAutenticar`.
+- 2026-11-20 — APP-07 (#29) concluída: `App.js` escolhe a stack pela sessão local (login ou lista,
+  mesmo offline); as três telas usam o `OfflineFirstProdutoRepository`; botão "Sair" bloqueado com
+  pendências na fila; `401` na sincronização volta ao login com o aviso de sessão expirada.
+- 2026-11-20 — APP-08 (#30) concluída: banner `IndicadorSincronizacao` na `TelaInicial` ("Modo
+  offline: X alteração(ões) aguardando conexão" / "Sincronizando...", toque para sincronizar) e
+  "puxar para atualizar" na lista; sem sincronização periódica em segundo plano (`setInterval`).
+- 2026-11-20 — TEMA-01 (#31) concluída: tema claro e escuro com `ThemeProvider`/`useTema()`, botão
+  de alternância no cabeçalho, preferência em `tema.json` e os componentes `ProdutoCard`,
+  `PainelDashboard` e `EmptyState` seguindo o tema ativo; as telas e o banner de sincronização
+  também seguem o tema (`useTemaOpcional()` nas telas).
