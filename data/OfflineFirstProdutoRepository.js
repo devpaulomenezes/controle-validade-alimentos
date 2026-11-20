@@ -17,22 +17,28 @@ import filaSincronizacao from './FilaSincronizacao';
 import AuthService from '../services/AuthService';
 
 const MENSAGEM_FALHA_DE_CONEXAO = 'Falha de conexão com o servidor. Verifique sua internet.';
+export const TEMPO_LIMITE_AGUARDAR_SINCRONIZACAO_MS = 3000;
 
 /**
- * Classifica o erro lançado pelo remotoRepo em: 'rede' (sem conexão ou status
- * desconhecido — tratado como transitório, nunca descarta dados do usuário),
- * 401, ou um número de status 4xx/5xx. ApiProdutoRepository não anexa um
- * campo .status ao erro; por isso o status é lido da própria mensagem quando
+ * Classifica o erro lançado pelo remotoRepo em: 'rede' (sem conexão, 408, 429
+ * ou status desconhecido — tratado como transitório, nunca descarta dados do
+ * usuário), 401, ou um número de status 4xx/5xx. ApiProdutoRepository não anexa
+ * um campo .status ao erro; por isso o status é lido da própria mensagem quando
  * presente, e um eventual erro.status numérico (útil nos testes) tem prioridade.
  */
 function interpretarErro(erro) {
-  if (typeof erro?.status === 'number') return erro.status;
-  const mensagem = erro?.message || '';
-  if (mensagem === MENSAGEM_FALHA_DE_CONEXAO) return 'rede';
-  if (/não encontrad[oa]/i.test(mensagem)) return 404;
-  const combinado = mensagem.match(/status (\d{3})/);
-  if (combinado) return Number(combinado[1]);
-  return 'rede';
+  let status = typeof erro?.status === 'number' ? erro.status : null;
+  if (status === null) {
+    const mensagem = erro?.message || '';
+    if (mensagem === MENSAGEM_FALHA_DE_CONEXAO) return 'rede';
+    if (/não encontrad[oa]/i.test(mensagem)) status = 404;
+    else {
+      const combinado = mensagem.match(/status (\d{3})/);
+      if (combinado) status = Number(combinado[1]);
+    }
+  }
+  if (status === null || status === 408 || status === 429) return 'rede';
+  return status;
 }
 
 export class OfflineFirstProdutoRepository extends ProdutoRepository {
@@ -59,6 +65,17 @@ export class OfflineFirstProdutoRepository extends ProdutoRepository {
 
   async listar() {
     await this.sincronizar().catch(() => {});
+    return this.listarLocal();
+  }
+
+  /**
+   * Lê os produtos direto do cache local, sem disparar sincronização
+   * (APP-05/APP-07: usado pela TelaInicial após sincronizar(), evitando
+   * uma segunda sincronização a cada leitura da lista).
+   *
+   * @returns {Promise<Produto[]>}
+   */
+  async listarLocal() {
     return this.localRepo.listar();
   }
 
@@ -126,6 +143,32 @@ export class OfflineFirstProdutoRepository extends ProdutoRepository {
   }
 
   /**
+   * Aguarda a sincronização em andamento terminar até o limite de tempo
+   * (TEMPO_LIMITE_AGUARDAR_SINCRONIZACAO_MS), ou resolve imediatamente quando
+   * não há rodada em curso (APP-07: o logout aguarda a rodada terminar antes de
+   * verificar pendências e limpar o cache local, sem travar se a rede não
+   * responder). Nunca rejeita.
+   *
+   * @returns {Promise<void>}
+   */
+  aguardarSincronizacao() {
+    const emAndamento = this.#sincronizacaoEmAndamento;
+    if (!emAndamento) return Promise.resolve();
+
+    let timerId;
+    const limite = new Promise((resolve) => {
+      timerId = setTimeout(resolve, TEMPO_LIMITE_AGUARDAR_SINCRONIZACAO_MS);
+    });
+    const sincronizacao = emAndamento.then(
+      () => {},
+      () => {}
+    );
+    return Promise.race([sincronizacao, limite]).finally(() => {
+      clearTimeout(timerId);
+    });
+  }
+
+  /**
    * Enfileira a operação e dispara sincronizar() em segundo plano, sem
    * esperar a rede. Nunca lança: só o localRepo (já gravado por quem chamou,
    * antes desta função) decide se a escrita teve sucesso para a tela —
@@ -180,7 +223,7 @@ export class OfflineFirstProdutoRepository extends ProdutoRepository {
             const classificacao = interpretarErro(erro);
             // 401: interrompe e mantém este item e os seguintes; a tela pede novo login.
             if (classificacao === 401) return { sessaoExpirada: true };
-            // Sem conexão ou 5xx: interrompe e mantém este item e os seguintes.
+            // Sem conexão, 408, 429 ou 5xx: interrompe e mantém este item e os seguintes.
             if (classificacao === 'rede' || classificacao >= 500) return { sessaoExpirada: false };
             // Outro 4xx: o servidor rejeitou a operação em definitivo (dado
             // inválido, recurso já removido etc.). Descarta e segue a fila.
@@ -201,6 +244,10 @@ export class OfflineFirstProdutoRepository extends ProdutoRepository {
       // Nunca substitui o cache com pendências: uma escrita feita durante o
       // download seria apagada do cache antes de chegar ao servidor.
       if ((await this.#itensPendentes(usuarioId)).length > 0) continue;
+      // Se a sessão encerrou ou trocou de usuário durante o download (ex.:
+      // logout concluiu após o limite de espera), não regrava o cache.
+      const usuarioAtual = await this.obterUsuarioId();
+      if (!usuarioAtual || usuarioAtual !== usuarioId) return { sessaoExpirada: false };
       await this.localRepo.substituirTodos(remotos);
       return { sessaoExpirada: false };
     }

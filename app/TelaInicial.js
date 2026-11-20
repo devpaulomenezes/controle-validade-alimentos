@@ -41,9 +41,12 @@ function normalizar(texto) {
     : minusculo;
 }
 
-/** Lê os produtos do repositório, já ordenados e com a situação de cada um. */
+/** Lê os produtos do cache local do repositório, já ordenados e com a situação de cada um. */
 async function carregarItens() {
-  const produtos = ordenarPorValidade(await repositorio.listar());
+  const ler = repositorio.listarLocal
+    ? () => repositorio.listarLocal()
+    : () => repositorio.listar();
+  const produtos = ordenarPorValidade(await ler());
   return produtos.map((produto) => ({ produto, situacao: classificarSituacao(produto) }));
 }
 
@@ -101,14 +104,20 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada, 
   }, [aoSessaoExpirada]);
 
   /**
-   * Logout: bloqueado enquanto houver operações do usuário na fila (sair agora
-   * perderia esses dados). Sem pendências, limpa o cache local — o próximo
-   * usuário não vê os produtos do anterior — e só então apaga a sessão.
+   * Logout: aguarda uma eventual sincronização em curso terminar, bloqueia
+   * enquanto houver operações do usuário na fila (sair agora perderia esses
+   * dados) e, sem pendências, limpa o cache local — o próximo usuário não vê
+   * os produtos do anterior — e só então apaga a sessão.
    */
   const sair = useCallback(async () => {
     if (saindo) return;
     setSaindo(true);
     try {
+      try {
+        await repositorio.aguardarSincronizacao();
+      } catch {
+        // Ignora falha da sincronização em curso; a contagem de pendências abaixo decide o bloqueio.
+      }
       const totalPendentes = await repositorio.quantidadePendente();
       if (totalPendentes > 0) {
         const quantidade =

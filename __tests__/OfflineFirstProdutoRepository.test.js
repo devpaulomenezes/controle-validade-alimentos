@@ -4,8 +4,15 @@
  * local, fila offline e API — são fakes em memória injetados pelo construtor;
  * nenhum teste depende de rede nem do FileSystem real.
  */
-import { OfflineFirstProdutoRepository } from '../data/OfflineFirstProdutoRepository';
+import React from 'react';
+import TestRenderer, { act } from 'react-test-renderer';
+import repositorioPadrao, {
+  OfflineFirstProdutoRepository,
+  TEMPO_LIMITE_AGUARDAR_SINCRONIZACAO_MS,
+} from '../data/OfflineFirstProdutoRepository';
 import ProdutoRepository from '../data/ProdutoRepository';
+import TelaInicial from '../app/TelaInicial';
+import { ThemeProvider } from '../theme/ThemeContext';
 
 // Os singletons padrão (JsonProdutoRepository, FilaSincronizacao e AuthService)
 // leem FileSystem.documentDirectory ao serem importados.
@@ -16,6 +23,21 @@ jest.mock('expo-file-system/legacy', () => ({
   writeAsStringAsync: jest.fn(async () => {}),
   moveAsync: jest.fn(async () => {}),
   deleteAsync: jest.fn(async () => {}),
+}));
+
+jest.mock('@react-navigation/native', () => {
+  const { useEffect } = require('react');
+  return { useFocusEffect: (efeito) => useEffect(efeito, [efeito]) };
+});
+
+jest.mock('../services/NotificacoesService', () => ({
+  __esModule: true,
+  default: { cancelarAlerta: jest.fn() },
+}));
+
+jest.mock('../services/CameraService', () => ({
+  __esModule: true,
+  default: { removerFoto: jest.fn() },
 }));
 
 // Mensagens no formato real do ApiProdutoRepository (sem campo .status).
@@ -48,9 +70,7 @@ function criarLocalRepoFake() {
   let produtos = [];
   let contador = 0;
   return {
-    async listar() {
-      return produtos.map((p) => ({ ...p }));
-    },
+    listar: jest.fn(async () => produtos.map((p) => ({ ...p }))),
     async salvar(produto) {
       contador += 1;
       const novo = { ...produto, id: produto.id || `local-${contador}` };
@@ -313,6 +333,49 @@ describe('OfflineFirstProdutoRepository', () => {
       expect(remoto._produtos().some((p) => p.id === invalido.id)).toBe(false);
     });
 
+    it('erros 408 e 429 mantêm o item na fila e interrompem a sincronização; 400, 403 e 404 continuam descartando o item', async () => {
+      const contexto = criarRepositorio();
+      const item400 = await escreverOffline(contexto, (repo) => repo.salvar(produto('Erro 400')));
+      const item403 = await escreverOffline(contexto, (repo) => repo.salvar(produto('Erro 403')));
+      const item404 = await escreverOffline(contexto, (repo) => repo.salvar(produto('Erro 404')));
+      const valido = await escreverOffline(contexto, (repo) => repo.salvar(produto('Válido')));
+      const { repo, remoto, fila, local } = contexto;
+
+      // 1) 408 (timeout): transitório — interrompe e mantém todos os itens na fila.
+      reconectar(remoto);
+      remoto.salvar.mockRejectedValueOnce(erroStatus(408));
+      consoleErro.mockClear();
+      await expect(repo.sincronizar()).resolves.toEqual({ sessaoExpirada: false });
+      expect(remoto.salvar).toHaveBeenCalledTimes(1);
+      expect(fila._itens()).toHaveLength(4);
+      expect(consoleErro).not.toHaveBeenCalled();
+      expect(local.substituirTodos).not.toHaveBeenCalled();
+
+      // 2) 429 (rate limit): transitório — interrompe e mantém todos os itens na fila.
+      reconectar(remoto);
+      remoto.salvar.mockRejectedValueOnce(erroStatus(429));
+      await expect(repo.sincronizar()).resolves.toEqual({ sessaoExpirada: false });
+      expect(remoto.salvar).toHaveBeenCalledTimes(1);
+      expect(fila._itens()).toHaveLength(4);
+      expect(consoleErro).not.toHaveBeenCalled();
+      expect(local.substituirTodos).not.toHaveBeenCalled();
+
+      // 3) 400, 403 e 404: definitivos — descartam os 3 itens e enviam o válido seguinte.
+      reconectar(remoto);
+      remoto.salvar.mockRejectedValueOnce(erroStatus(400));
+      remoto.salvar.mockRejectedValueOnce(erroStatus(403));
+      remoto.salvar.mockRejectedValueOnce(erroStatus(404));
+      await expect(repo.sincronizar()).resolves.toEqual({ sessaoExpirada: false });
+
+      expect(remoto.chamadas).toEqual([['salvar', valido.id]]);
+      expect(fila._itens()).toEqual([]);
+      expect(consoleErro).toHaveBeenCalledTimes(3);
+      expect(remoto._produtos().map((p) => p.id)).toEqual([valido.id]);
+      expect(remoto._produtos().some((p) => [item400.id, item403.id, item404.id].includes(p.id))).toBe(
+        false
+      );
+    });
+
     it('erro 401 interrompe a sincronização e mantém os itens na fila', async () => {
       const contexto = criarRepositorio();
       await escreverOffline(contexto, (repo) => repo.salvar(produto('A')));
@@ -447,6 +510,67 @@ describe('OfflineFirstProdutoRepository', () => {
         quantidade: 1,
       });
     });
+
+    it('listarLocal lê o cache local sem disparar nova sincronização (foco da TelaInicial faz só 1 sincronização)', async () => {
+      const { local, remoto, fila } = criarRepositorio();
+      await remoto.salvar({
+        id: 'srv-1',
+        nome: 'Do servidor',
+        quantidade: 1,
+        dataDeValidade: '2030-01-01',
+        fotoUri: null,
+      });
+      reconectar(remoto);
+
+      const original = {
+        localRepo: repositorioPadrao.localRepo,
+        remotoRepo: repositorioPadrao.remotoRepo,
+        fila: repositorioPadrao.fila,
+        obterUsuarioId: repositorioPadrao.obterUsuarioId,
+      };
+      repositorioPadrao.localRepo = local;
+      repositorioPadrao.remotoRepo = remoto;
+      repositorioPadrao.fila = fila;
+      repositorioPadrao.obterUsuarioId = async () => 'u1';
+
+      let renderer;
+      try {
+        await act(async () => {
+          renderer = TestRenderer.create(
+            <ThemeProvider>
+              <TelaInicial
+                navigation={{ setOptions: jest.fn(), navigate: jest.fn() }}
+                aoDeslogar={jest.fn()}
+                aoSessaoExpirada={jest.fn()}
+              />
+            </ThemeProvider>
+          );
+        });
+
+        expect(remoto.listar).toHaveBeenCalledTimes(1);
+        expect(local.substituirTodos).toHaveBeenCalledTimes(1);
+        expect(local.listar).toHaveBeenCalledTimes(1);
+        await expect(repositorioPadrao.listarLocal()).resolves.toEqual([
+          {
+            id: 'srv-1',
+            nome: 'Do servidor',
+            quantidade: 1,
+            dataDeValidade: '2030-01-01',
+            fotoUri: null,
+          },
+        ]);
+        // A chamada direta a listarLocal() acima não disparou nova sincronização.
+        expect(remoto.listar).toHaveBeenCalledTimes(1);
+        expect(local.substituirTodos).toHaveBeenCalledTimes(1);
+      } finally {
+        if (renderer) {
+          await act(async () => {
+            renderer.unmount();
+          });
+        }
+        Object.assign(repositorioPadrao, original);
+      }
+    });
   });
 
   describe('apoio ao logout (APP-07)', () => {
@@ -473,6 +597,137 @@ describe('OfflineFirstProdutoRepository', () => {
       expect(contexto.local.limpar).toHaveBeenCalledTimes(1);
       expect(contexto.local._produtos()).toEqual([]);
       expect(contexto.fila._itens()).toHaveLength(1);
+    });
+
+    it('aguardarSincronizacao permite ao logout esperar a rodada em curso antes de limpar o cache', async () => {
+      const { repo, remoto, local } = criarRepositorio();
+      await expect(repo.aguardarSincronizacao()).resolves.toBeUndefined();
+
+      let responderServidor;
+      remoto.listar.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            responderServidor = () =>
+              resolve([{ id: 'srv-u1', nome: 'Produto do usuário anterior', quantidade: 1 }]);
+          })
+      );
+
+      const sincronizacao = repo.sincronizar();
+
+      // Logout disparado durante a sincronização em curso.
+      const ordem = [];
+      local.substituirTodos.mockImplementationOnce(async (lista) => {
+        ordem.push('substituirTodos');
+        await local.salvar({ ...lista[0] });
+      });
+      local.limpar.mockImplementationOnce(async () => {
+        ordem.push('limpar');
+        await local.remover('srv-u1');
+      });
+
+      const fluxoLogout = (async () => {
+        await repo.aguardarSincronizacao();
+        expect(await repo.quantidadePendente()).toBe(0);
+        await repo.limparCacheLocal();
+        ordem.push('aoDeslogar');
+      })();
+
+      await aguardarSegundoPlano();
+      // Enquanto a sincronização não terminou, o cache ainda não foi limpo.
+      expect(ordem).toEqual([]);
+
+      responderServidor();
+      await Promise.all([sincronizacao, fluxoLogout]);
+
+      expect(ordem).toEqual(['substituirTodos', 'limpar', 'aoDeslogar']);
+      expect(local._produtos()).toEqual([]);
+    });
+
+    it('aguardarSincronizacao respeita o tempo-limite se a sincronização travar, e a rodada antiga não chama substituirTodos após o logout', async () => {
+      jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+      try {
+        let usuarioAtual = 'u1';
+        const local = criarLocalRepoFake();
+        const remoto = criarRemotoFake();
+        const fila = criarFilaFake();
+        const repo = new OfflineFirstProdutoRepository({
+          localRepo: local,
+          remotoRepo: remoto,
+          fila,
+          obterUsuarioId: jest.fn(async () => usuarioAtual),
+        });
+
+        let responderServidorAtrasado;
+        remoto.listar.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              responderServidorAtrasado = resolve;
+            })
+        );
+
+        const sincronizacao = repo.sincronizar();
+        await aguardarSegundoPlano();
+
+        let esperaResolvida = false;
+        const espera = repo.aguardarSincronizacao().then(() => {
+          esperaResolvida = true;
+        });
+
+        jest.advanceTimersByTime(TEMPO_LIMITE_AGUARDAR_SINCRONIZACAO_MS - 1);
+        await aguardarSegundoPlano();
+        expect(esperaResolvida).toBe(false);
+
+        jest.advanceTimersByTime(1);
+        await espera;
+        expect(esperaResolvida).toBe(true);
+
+        // O logout conclui após o limite: limpa o cache e encerra a sessão.
+        await repo.limparCacheLocal();
+        usuarioAtual = null;
+
+        // A requisição travada responde depois do logout: a guarda impede regravar o cache.
+        responderServidorAtrasado([
+          { id: 'srv-u1', nome: 'Produto atrasado do usuário anterior', quantidade: 1 },
+        ]);
+        await expect(sincronizacao).resolves.toEqual({ sessaoExpirada: false });
+
+        expect(local.substituirTodos).not.toHaveBeenCalled();
+        expect(local._produtos()).toEqual([]);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('não chama substituirTodos quando o usuário da sessão mudou durante o download remoto', async () => {
+      let usuarioAtual = 'u1';
+      const local = criarLocalRepoFake();
+      const remoto = criarRemotoFake();
+      const fila = criarFilaFake();
+      const repo = new OfflineFirstProdutoRepository({
+        localRepo: local,
+        remotoRepo: remoto,
+        fila,
+        obterUsuarioId: jest.fn(async () => usuarioAtual),
+      });
+
+      let responderServidor;
+      remoto.listar.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            responderServidor = resolve;
+          })
+      );
+
+      const sincronizacao = repo.sincronizar();
+      await aguardarSegundoPlano();
+
+      // Outro usuário autentica antes de o download da sessão anterior responder.
+      usuarioAtual = 'u2';
+      responderServidor([{ id: 'srv-u1', nome: 'Do usuário u1', quantidade: 1 }]);
+      await expect(sincronizacao).resolves.toEqual({ sessaoExpirada: false });
+
+      expect(local.substituirTodos).not.toHaveBeenCalled();
+      expect(local._produtos()).toEqual([]);
     });
   });
 });
