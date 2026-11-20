@@ -103,4 +103,17 @@ export function useTema() {
   return valor;
 }
 
+/** Valor de useTemaOpcional() fora do ThemeProvider: o tema claro, sem alternância. */
+const TEMA_PADRAO = Object.freeze({ ...temas.claro, alternarTema: () => {}, carregando: false });
+
+/**
+ * Como useTema(), mas fora do ThemeProvider devolve o tema claro em vez de
+ * lançar erro. Usado pelas TELAS (app/), que também são renderizadas
+ * isoladamente nos testes de tela — ex.: TelaCadastroEdicao.test.js renderiza
+ * a TelaCadastro sem provider. Componentes (components/) usam useTema().
+ */
+export function useTemaOpcional() {
+  return useContext(ThemeContext) ?? TEMA_PADRAO;
+}
+
 export default ThemeContext;

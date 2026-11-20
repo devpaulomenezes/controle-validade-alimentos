@@ -16,7 +16,8 @@ import ProdutoCard from '../components/ProdutoCard';
 import EmptyState from '../components/EmptyState';
 import PainelDashboard from '../components/PainelDashboard';
 import IndicadorSincronizacao from '../components/IndicadorSincronizacao';
-import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../theme/theme';
+import { espacamento, raio, fonte } from '../theme/theme';
+import { useTemaOpcional } from '../theme/ThemeContext';
 import repositorio from '../data/OfflineFirstProdutoRepository';
 import AuthService from '../services/AuthService';
 import { classificarSituacao } from '../services/ServicoValidade';
@@ -55,6 +56,9 @@ async function carregarItens() {
  *   App.js (TEMA-01); exibido ao lado do "+ Novo", pois este cabeçalho define o próprio headerRight.
  */
 export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada, BotaoTema }) {
+  // Tema ativo (TEMA-01); fora do ThemeProvider, o claro (ex.: testes de tela).
+  const { cores, situacoes, estilosBase } = useTemaOpcional();
+  const styles = useMemo(() => criarEstilos(cores), [cores]);
   const [itens, setItens] = useState([]); // [{ produto, situacao }]
   const [carregando, setCarregando] = useState(true);
   const [removendo, setRemovendo] = useState(false);
@@ -156,7 +160,7 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada, 
         </View>
       ),
     });
-  }, [navigation, abrirCadastro, sair, saindo, BotaoTema]);
+  }, [navigation, abrirCadastro, sair, saindo, BotaoTema, styles]);
 
   // Promessa da sincronização em andamento. Fica numa ref, e não num estado:
   // se este useCallback dependesse de um estado que ele mesmo altera, sua
@@ -401,53 +405,56 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada, 
   );
 }
 
-const styles = StyleSheet.create({
-  centro: {
-    justifyContent: 'center',
-  },
-  centroRolavel: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  acoesCabecalho: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  areaBotaoCabecalho: {
-    paddingVertical: espacamento.sm,
-    paddingHorizontal: espacamento.sm,
-  },
-  botaoCabecalho: {
-    color: cores.textoInverso,
-    fontSize: fonte.normal,
-    fontWeight: 'bold',
-  },
-  topo: {
-    paddingHorizontal: espacamento.md,
-    paddingTop: espacamento.md,
-  },
-  filtros: {
-    paddingVertical: espacamento.sm,
-    gap: espacamento.sm,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: cores.borda,
-    backgroundColor: cores.superficie,
-    borderRadius: raio.pill,
-    paddingHorizontal: espacamento.md,
-    paddingVertical: 6,
-  },
-  textoChip: {
-    fontSize: fonte.pequena,
-    color: cores.texto,
-  },
-  textoChipAtivo: {
-    color: cores.textoInverso,
-    fontWeight: 'bold',
-  },
-  lista: {
-    paddingHorizontal: espacamento.md,
-    paddingBottom: espacamento.xl,
-  },
-});
+function criarEstilos(cores) {
+  return StyleSheet.create({
+    centro: {
+      justifyContent: 'center',
+    },
+    centroRolavel: {
+      flexGrow: 1,
+      justifyContent: 'center',
+    },
+    acoesCabecalho: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    areaBotaoCabecalho: {
+      paddingVertical: espacamento.sm,
+      paddingHorizontal: espacamento.sm,
+    },
+    botaoCabecalho: {
+      // Sobre o cabeçalho da navegação (não sobre um botão primário).
+      color: cores.textoCabecalho,
+      fontSize: fonte.normal,
+      fontWeight: 'bold',
+    },
+    topo: {
+      paddingHorizontal: espacamento.md,
+      paddingTop: espacamento.md,
+    },
+    filtros: {
+      paddingVertical: espacamento.sm,
+      gap: espacamento.sm,
+    },
+    chip: {
+      borderWidth: 1,
+      borderColor: cores.borda,
+      backgroundColor: cores.superficie,
+      borderRadius: raio.pill,
+      paddingHorizontal: espacamento.md,
+      paddingVertical: 6,
+    },
+    textoChip: {
+      fontSize: fonte.pequena,
+      color: cores.texto,
+    },
+    textoChipAtivo: {
+      color: cores.textoInverso,
+      fontWeight: 'bold',
+    },
+    lista: {
+      paddingHorizontal: espacamento.md,
+      paddingBottom: espacamento.xl,
+    },
+  });
+}

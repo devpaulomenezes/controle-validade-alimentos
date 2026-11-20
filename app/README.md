@@ -1,4 +1,4 @@
-Telas do aplicativo (navegação via React Navigation).
+Telas do aplicativo (navegação via React Navigation). Todas seguem o tema claro/escuro ativo (TEMA-01) pelo hook `useTemaOpcional()` de `theme/ThemeContext.js`, que fora do `ThemeProvider` devolve o tema claro — por isso cada tela continua renderizável isoladamente nos testes.
 
 ## Sessão e navegação (APP-07)
 

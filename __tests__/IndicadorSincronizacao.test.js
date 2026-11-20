@@ -99,7 +99,11 @@ describe('IndicadorSincronizacao (componente)', () => {
   async function renderizar(props) {
     let renderer;
     await act(async () => {
-      renderer = TestRenderer.create(<IndicadorSincronizacao {...props} />);
+      renderer = TestRenderer.create(
+        <ThemeProvider>
+          <IndicadorSincronizacao {...props} />
+        </ThemeProvider>
+      );
     });
     return { renderer, ...utilitarios(renderer) };
   }

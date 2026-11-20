@@ -371,7 +371,12 @@ escolha continua valendo depois de fechar e reabrir.
   `headerRight`, ele aparece ao lado do "+ Novo" (o `App.js` o passa pela prop `BotaoTema`).
 - **Componentes**: `ProdutoCard`, `PainelDashboard` e `EmptyState` obtêm cores, situações e estilos
   base pelo `useTema()` e recriam os estilos (`useMemo`) quando a paleta muda; a sombra do cartão
-  também passou a vir do tema (`cores.sombra`).
+  também passou a vir do tema (`cores.sombra`). O banner `IndicadorSincronizacao` segue o mesmo padrão.
+- **Telas** (`TelaInicial`, `TelaCadastro`, `TelaDetalhe` e `TelaLogin`): seguem o tema ativo pelo
+  `useTemaOpcional()`, que fora do `ThemeProvider` devolve o tema claro em vez de lançar erro. Assim
+  os testes de tela, como o `TelaCadastroEdicao.test.js` (sem alteração), continuam renderizando
+  cada tela isoladamente. Os botões do cabeçalho usam `cores.textoCabecalho`, e o seletor de data
+  inline do iOS recebe `themeVariant`.
 - **Limitação conhecida**: os diálogos do sistema (`Alert` e o seletor de data) seguem o
   `userInterfaceStyle: "light"` do `app.json` e continuam claros no tema escuro.
 
@@ -453,7 +458,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - **`AppSessao` (`__tests__/AppSessao.test.js`, APP-07)**: renderiza o `App.js` com o `NavigationContainer` e o native stack reais (telas simuladas) — sem sessão abre na `TelaLogin`; com sessão abre direto na lista; após o login a rota `Login` deixa de existir (o "voltar" não retorna a ela); "Sair" e sessão expirada voltam ao login, a segunda com o aviso.
 - **`TelaInicialSessao` (`__tests__/TelaInicialSessao.test.js`, APP-07)**: renderiza a `TelaInicial` com o repositório e o `AuthService` simulados — sincroniza uma única vez por foco (sem loop do `useFocusEffect`), "Sair" bloqueado com pendências na fila, "Sair" sem pendências na ordem limpar cache → logout → voltar ao login, falha ao limpar o cache sem deslogar, sessão expirada (`401`) apagando a sessão e falha de sincronização sem impedir a lista local. O teste do `OfflineFirstProdutoRepository` ganhou os casos de `quantidadePendente` e `limparCacheLocal`.
 - **`IndicadorSincronizacao` (`__tests__/IndicadorSincronizacao.test.js`, APP-08)**: o componente isolado (oculto sem pendências, singular e plural, "Sincronizando..." desabilitado, toque chamando `aoSincronizar` uma vez e nenhuma importação da fila ou de repositório) e a integração na `TelaInicial` (banner que some quando a fila esvazia, toque repetido sem sincronização duplicada, puxar a lista com o indicador até terminar — inclusive com uma sincronização já em andamento —, erro e `401` sem deixar "Sincronizando..." preso e lista vazia com banner e puxar para atualizar).
-- **`TemaClaroEscuro` (`__tests__/TemaClaroEscuro.test.js`, TEMA-01)**: exportações estáticas de `theme/theme.js` preservadas com a paleta clara, paleta escura com as mesmas chaves, tema claro por padrão (sem `tema.json`), troca para o escuro e de volta sem reiniciar, preferência gravada em `tema.json` e mantida ao reabrir, `tema.json` inválido ou com valor desconhecido assumindo o claro, falha de gravação sem desfazer a troca, alternância antes do fim da leitura respeitada, erro de `useTema()` fora do `ThemeProvider`, os componentes `ProdutoCard`, `PainelDashboard` e `EmptyState` trocando de cores com o tema (e sem cor fixa no código) e o botão do cabeçalho do `App.js` alternando o tema. Os testes da `TelaInicial` (`TelaInicialSessao` e `IndicadorSincronizacao`) passaram a renderizá-la dentro do `ThemeProvider`, como no app.
+- **`TemaClaroEscuro` (`__tests__/TemaClaroEscuro.test.js`, TEMA-01)**: exportações estáticas de `theme/theme.js` preservadas com a paleta clara, paleta escura com as mesmas chaves, tema claro por padrão (sem `tema.json`), troca para o escuro e de volta sem reiniciar, preferência gravada em `tema.json` e mantida ao reabrir, `tema.json` inválido ou com valor desconhecido assumindo o claro, falha de gravação sem desfazer a troca, alternância antes do fim da leitura respeitada, erro de `useTema()` fora do `ThemeProvider`, os componentes `ProdutoCard`, `PainelDashboard` e `EmptyState` trocando de cores com o tema (e sem cor fixa no código) o botão do cabeçalho do `App.js` alternando o tema, as quatro telas usando `useTemaOpcional()` sem cor fixa, `useTemaOpcional()` fora do provider devolvendo o tema claro e a `TelaLogin` trocando fundo e texto com o tema. Os testes da `TelaInicial` (`TelaInicialSessao` e `IndicadorSincronizacao`) passaram a renderizá-la dentro do `ThemeProvider`, como no app.
 
 ## Histórico de decisões
 
@@ -523,4 +528,5 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   "puxar para atualizar" na lista; sem sincronização periódica em segundo plano (`setInterval`).
 - 2026-11-20 — TEMA-01 (#31) concluída: tema claro e escuro com `ThemeProvider`/`useTema()`, botão
   de alternância no cabeçalho, preferência em `tema.json` e os componentes `ProdutoCard`,
-  `PainelDashboard` e `EmptyState` seguindo o tema ativo.
+  `PainelDashboard` e `EmptyState` seguindo o tema ativo; as telas e o banner de sincronização
+  também seguem o tema (`useTemaOpcional()` nas telas).

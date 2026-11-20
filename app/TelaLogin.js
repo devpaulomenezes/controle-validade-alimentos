@@ -4,7 +4,7 @@
  * Em caso de sucesso, avisa a navegação pelo callback aoAutenticar (prop);
  * a decisão de qual stack mostrar é de App.js (APP-07), não desta tela.
  */
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import AuthService from '../services/AuthService';
-import { cores, espacamento, fonte, estilosBase } from '../theme/theme';
+import { espacamento, fonte } from '../theme/theme';
+import { useTemaOpcional } from '../theme/ThemeContext';
 
 const EMAIL_BASICO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -45,6 +46,9 @@ function mensagemDeErro(erro) {
 }
 
 export default function TelaLogin({ aoAutenticar }) {
+  // Tema ativo (TEMA-01); fora do ThemeProvider, o claro (ex.: testes de tela).
+  const { cores, estilosBase } = useTemaOpcional();
+  const styles = useMemo(() => criarEstilos(cores), [cores]);
   const [modo, setModo] = useState('entrar'); // 'entrar' | 'cadastro'
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -168,13 +172,15 @@ export default function TelaLogin({ aoAutenticar }) {
   );
 }
 
-const styles = StyleSheet.create({
-  conteudo: { padding: espacamento.md, flexGrow: 1, justifyContent: 'center' },
-  titulo: { fontSize: fonte.titulo, fontWeight: 'bold', color: cores.texto, marginBottom: espacamento.lg, textAlign: 'center' },
-  grupo: { marginBottom: espacamento.md },
-  campoComErro: { borderColor: cores.erro },
-  botaoEnviar: { marginTop: espacamento.sm },
-  botaoDesabilitado: { opacity: 0.6 },
-  botaoAlternar: { marginTop: espacamento.md, alignItems: 'center' },
-  textoAlternar: { color: cores.primaria, fontSize: fonte.pequena, fontWeight: '600' },
-});
+function criarEstilos(cores) {
+  return StyleSheet.create({
+    conteudo: { padding: espacamento.md, flexGrow: 1, justifyContent: 'center' },
+    titulo: { fontSize: fonte.titulo, fontWeight: 'bold', color: cores.texto, marginBottom: espacamento.lg, textAlign: 'center' },
+    grupo: { marginBottom: espacamento.md },
+    campoComErro: { borderColor: cores.erro },
+    botaoEnviar: { marginTop: espacamento.sm },
+    botaoDesabilitado: { opacity: 0.6 },
+    botaoAlternar: { marginTop: espacamento.md, alignItems: 'center' },
+    textoAlternar: { color: cores.primaria, fontSize: fonte.pequena, fontWeight: '600' },
+  });
+}

@@ -1,6 +1,6 @@
 Componentes de interface reutilizáveis.
 
-`ProdutoCard`, `PainelDashboard` e `EmptyState` obtêm as cores do tema ativo (claro ou escuro) pelo hook `useTema()` de `theme/ThemeContext.js` (TEMA-01), então precisam estar dentro do `ThemeProvider` (o `App.js` envolve o app com ele).
+`ProdutoCard`, `PainelDashboard`, `EmptyState` e `IndicadorSincronizacao` obtêm as cores do tema ativo (claro ou escuro) pelo hook `useTema()` de `theme/ThemeContext.js` (TEMA-01), então precisam estar dentro do `ThemeProvider` (o `App.js` envolve o app com ele).
 
 - `ProdutoCard.js` — cartão do produto (recebe `produto` e `situacao` prontos; não calcula datas).
 - `EmptyState.js` — estado de lista vazia com chamada para ação.

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import Produto from '../data/Produto';
 import repositorio from '../data/OfflineFirstProdutoRepository';
 import CameraService from '../services/CameraService';
 import NotificacoesService from '../services/NotificacoesService';
-import { cores, espacamento, raio, fonte, estilosBase } from '../theme/theme';
+import { espacamento, raio, fonte } from '../theme/theme';
+import { useTemaOpcional } from '../theme/ThemeContext';
 import { calcularDiasRestantes } from '../services/ServicoValidade';
 import { formatarDataBR, dataParaIso, isoParaData } from '../utils/formatoData';
 
@@ -65,6 +66,9 @@ function confirmarSalvarSemFoto() {
 }
 
 export default function TelaCadastro({ navigation, route }) {
+  // Tema ativo (TEMA-01); fora do ThemeProvider, o claro (ex.: testes de tela).
+  const { cores, estilosBase, escuro } = useTemaOpcional();
+  const styles = useMemo(() => criarEstilos(cores), [cores]);
   // Modo edição quando chega um produto em route.params; senão, modo criação.
   const produtoEdicao = route?.params?.produto ?? null;
   const modoEdicao = Boolean(produtoEdicao?.id);
@@ -321,6 +325,7 @@ export default function TelaCadastro({ navigation, route }) {
                 mode="date"
                 minimumDate={inicioDeHoje()}
                 display="inline"
+                themeVariant={escuro ? 'dark' : 'light'}
                 onValueChange={(_evento, data) => selecionarData(data)}
               />
               <TouchableOpacity onPress={() => setMostrarSeletorIOS(false)}>
@@ -378,88 +383,90 @@ export default function TelaCadastro({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  conteudo: {
-    padding: espacamento.md,
-  },
-  grupo: {
-    marginBottom: espacamento.md,
-  },
-  campoComErro: {
-    borderColor: cores.erro,
-  },
-  campoData: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  textoData: {
-    fontSize: fonte.normal,
-    color: cores.texto,
-  },
-  textoPlaceholder: {
-    fontSize: fonte.normal,
-    color: cores.textoSecundario,
-  },
-  campoFoto: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderStyle: 'dashed',
-    paddingVertical: espacamento.md,
-  },
-  textoPlaceholderFoto: {
-    color: cores.primaria,
-    fontWeight: '600',
-    fontSize: fonte.normal,
-  },
-  containerPreviewFoto: {
-    alignItems: 'center',
-    backgroundColor: cores.superficie,
-    borderRadius: raio.md,
-    borderColor: cores.borda,
-    borderWidth: 1,
-    padding: espacamento.sm,
-  },
-  previewFoto: {
-    width: '100%',
-    height: 180,
-    borderRadius: raio.sm,
-    backgroundColor: cores.fundo,
-  },
-  acoesFoto: {
-    flexDirection: 'row',
-    gap: espacamento.md,
-  },
-  botaoAlterarFoto: {
-    marginTop: espacamento.sm,
-    paddingVertical: espacamento.xs + 2,
-    paddingHorizontal: espacamento.md,
-  },
-  textoBotaoAlterarFoto: {
-    color: cores.primaria,
-    fontWeight: '600',
-    fontSize: fonte.pequena,
-  },
-  textoRemoverFoto: {
-    color: cores.erro,
-  },
-  seletorIOS: {
-    marginTop: espacamento.sm,
-    backgroundColor: cores.superficie,
-    borderRadius: raio.md,
-    padding: espacamento.sm,
-  },
-  confirmarData: {
-    color: cores.primaria,
-    fontSize: fonte.normal,
-    fontWeight: 'bold',
-    textAlign: 'right',
-    padding: espacamento.sm,
-  },
-  botaoSalvar: {
-    marginTop: espacamento.sm,
-  },
-  botaoDesabilitado: {
-    opacity: 0.6,
-  },
-});
+function criarEstilos(cores) {
+  return StyleSheet.create({
+    conteudo: {
+      padding: espacamento.md,
+    },
+    grupo: {
+      marginBottom: espacamento.md,
+    },
+    campoComErro: {
+      borderColor: cores.erro,
+    },
+    campoData: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    textoData: {
+      fontSize: fonte.normal,
+      color: cores.texto,
+    },
+    textoPlaceholder: {
+      fontSize: fonte.normal,
+      color: cores.textoSecundario,
+    },
+    campoFoto: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderStyle: 'dashed',
+      paddingVertical: espacamento.md,
+    },
+    textoPlaceholderFoto: {
+      color: cores.primaria,
+      fontWeight: '600',
+      fontSize: fonte.normal,
+    },
+    containerPreviewFoto: {
+      alignItems: 'center',
+      backgroundColor: cores.superficie,
+      borderRadius: raio.md,
+      borderColor: cores.borda,
+      borderWidth: 1,
+      padding: espacamento.sm,
+    },
+    previewFoto: {
+      width: '100%',
+      height: 180,
+      borderRadius: raio.sm,
+      backgroundColor: cores.fundo,
+    },
+    acoesFoto: {
+      flexDirection: 'row',
+      gap: espacamento.md,
+    },
+    botaoAlterarFoto: {
+      marginTop: espacamento.sm,
+      paddingVertical: espacamento.xs + 2,
+      paddingHorizontal: espacamento.md,
+    },
+    textoBotaoAlterarFoto: {
+      color: cores.primaria,
+      fontWeight: '600',
+      fontSize: fonte.pequena,
+    },
+    textoRemoverFoto: {
+      color: cores.erro,
+    },
+    seletorIOS: {
+      marginTop: espacamento.sm,
+      backgroundColor: cores.superficie,
+      borderRadius: raio.md,
+      padding: espacamento.sm,
+    },
+    confirmarData: {
+      color: cores.primaria,
+      fontSize: fonte.normal,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      padding: espacamento.sm,
+    },
+    botaoSalvar: {
+      marginTop: espacamento.sm,
+    },
+    botaoDesabilitado: {
+      opacity: 0.6,
+    },
+  });
+}

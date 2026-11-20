@@ -8,7 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import React, { useEffect } from 'react';
-import { Alert, Text, StyleSheet } from 'react-native';
+import { Alert, Text, StyleSheet, KeyboardAvoidingView } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
@@ -22,7 +22,7 @@ import {
   fonte,
   temas,
 } from '../theme/theme';
-import { ThemeProvider, useTema, CAMINHO_PREFERENCIA_TEMA } from '../theme/ThemeContext';
+import { ThemeProvider, useTema, useTemaOpcional, CAMINHO_PREFERENCIA_TEMA } from '../theme/ThemeContext';
 import App from '../App';
 import ProdutoCard from '../components/ProdutoCard';
 import PainelDashboard from '../components/PainelDashboard';
@@ -303,6 +303,88 @@ describe('Tema claro e escuro (TEMA-01)', () => {
         expect({ arquivo, corFixa: fonte.match(/#[0-9a-f]{3,8}|rgba?\(/i) }).toEqual({ arquivo, corFixa: null });
         expect(fonte).toMatch(/useTema\(\)/);
       }
+    });
+  });
+
+  describe('telas seguem o tema ativo', () => {
+    const TELAS = ['TelaInicial.js', 'TelaCadastro.js', 'TelaDetalhe.js', 'TelaLogin.js'];
+
+    it('as telas usam useTemaOpcional(), sem cor fixa nem a paleta estática', () => {
+      for (const arquivo of TELAS) {
+        const fonte = fs.readFileSync(path.join(__dirname, '..', 'app', arquivo), 'utf8');
+        const importDoTema = fonte.match(/import \{([^}]*)\} from '\.\.\/theme\/theme'/)?.[1] ?? '';
+
+        expect({ arquivo, corFixa: fonte.match(/#[0-9a-f]{3,8}|rgba?\(/i) }).toEqual({ arquivo, corFixa: null });
+        expect({ arquivo, usaHook: /useTemaOpcional\(\)/.test(fonte) }).toEqual({ arquivo, usaHook: true });
+        expect({ arquivo, paletaEstatica: /(cores|situacoes|estilosBase)/.test(importDoTema) }).toEqual({
+          arquivo,
+          paletaEstatica: false,
+        });
+      }
+    });
+
+    it('useTemaOpcional() fora do ThemeProvider devolve o tema claro, sem lançar erro', async () => {
+      const recebidos = [];
+      function ConsumidorOpcional() {
+        const tema = useTemaOpcional();
+        useEffect(() => {
+          recebidos.push(tema);
+        }, [tema]);
+        return null;
+      }
+      let renderer;
+      await act(async () => {
+        renderer = TestRenderer.create(<ConsumidorOpcional />);
+      });
+
+      expect(recebidos[0].nome).toBe('claro');
+      expect(recebidos[0].cores).toBe(cores);
+      expect(() => recebidos[0].alternarTema()).not.toThrow();
+      await act(async () => {
+        renderer.unmount();
+      });
+    });
+
+    it('a TelaLogin troca o fundo e o texto com o tema, e usa o claro fora do ThemeProvider', async () => {
+      const { default: TelaLoginReal } = jest.requireActual('../app/TelaLogin');
+      const fundoDa = (renderer) =>
+        StyleSheet.flatten(renderer.root.findByType(KeyboardAvoidingView).props.style).backgroundColor;
+      const corDoTitulo = (renderer) =>
+        StyleSheet.flatten(
+          renderer.root.findAll((no) => no.type === 'Text' && no.props.children === 'Entrar')[0].props.style
+        ).color;
+
+      let semProvider;
+      await act(async () => {
+        semProvider = TestRenderer.create(<TelaLoginReal aoAutenticar={jest.fn()} />);
+      });
+      expect(fundoDa(semProvider)).toBe(cores.fundo);
+      await act(async () => {
+        semProvider.unmount();
+      });
+
+      const registro = { atual: null };
+      let comProvider;
+      await act(async () => {
+        comProvider = TestRenderer.create(
+          <ThemeProvider>
+            <Consumidor aoReceberTema={(tema) => (registro.atual = tema)} />
+            <TelaLoginReal aoAutenticar={jest.fn()} />
+          </ThemeProvider>
+        );
+      });
+      expect(fundoDa(comProvider)).toBe(cores.fundo);
+      expect(corDoTitulo(comProvider)).toBe(cores.texto);
+
+      await act(async () => {
+        registro.atual.alternarTema();
+      });
+
+      expect(fundoDa(comProvider)).toBe(coresEscuras.fundo);
+      expect(corDoTitulo(comProvider)).toBe(coresEscuras.texto);
+      await act(async () => {
+        comProvider.unmount();
+      });
     });
   });
 

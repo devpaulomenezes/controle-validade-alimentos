@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import repositorio from '../data/OfflineFirstProdutoRepository';
 import NotificacoesService from '../services/NotificacoesService';
 import CameraService from '../services/CameraService';
 import { calcularDiasRestantes, classificarSituacao } from '../services/ServicoValidade';
-import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../theme/theme';
+import { espacamento, raio, fonte } from '../theme/theme';
+import { useTemaOpcional } from '../theme/ThemeContext';
 import { formatarDataBR, dataParaIso } from '../utils/formatoData';
 
 /** Texto dos dias restantes (apenas apresentação; o cálculo vem do ServicoValidade). */
@@ -42,6 +43,9 @@ function formatarCadastro(dataDeCadastro) {
 }
 
 export default function TelaDetalhe({ navigation, route }) {
+  // Tema ativo (TEMA-01); fora do ThemeProvider, o claro (ex.: testes de tela).
+  const { cores, situacoes, estilosBase } = useTemaOpcional();
+  const styles = useMemo(() => criarEstilos(cores), [cores]);
   const produtoId = route.params?.produtoId;
   const [carregando, setCarregando] = useState(true);
   const [produto, setProduto] = useState(null);
@@ -164,10 +168,10 @@ export default function TelaDetalhe({ navigation, route }) {
       ) : null}
 
       <View style={styles.bloco}>
-        <Linha rotulo="Quantidade" valor={String(produto.quantidade)} />
-        <Linha rotulo="Data de validade" valor={formatarDataBR(produto.dataDeValidade)} />
-        <Linha rotulo="Dias restantes" valor={descreverDias(dias)} />
-        <Linha rotulo="Cadastrado em" valor={formatarCadastro(produto.dataDeCadastro)} />
+        <Linha estilos={styles} rotulo="Quantidade" valor={String(produto.quantidade)} />
+        <Linha estilos={styles} rotulo="Data de validade" valor={formatarDataBR(produto.dataDeValidade)} />
+        <Linha estilos={styles} rotulo="Dias restantes" valor={descreverDias(dias)} />
+        <Linha estilos={styles} rotulo="Cadastrado em" valor={formatarCadastro(produto.dataDeCadastro)} />
       </View>
 
       <TouchableOpacity
@@ -192,114 +196,117 @@ export default function TelaDetalhe({ navigation, route }) {
   );
 }
 
-function Linha({ rotulo, valor }) {
+/** Linha "rótulo: valor" do bloco de dados; recebe os estilos do tema ativo da tela. */
+function Linha({ rotulo, valor, estilos }) {
   return (
-    <View style={styles.linha}>
-      <Text style={styles.rotulo}>{rotulo}</Text>
-      <Text style={styles.valor}>{valor}</Text>
+    <View style={estilos.linha}>
+      <Text style={estilos.rotulo}>{rotulo}</Text>
+      <Text style={estilos.valor}>{valor}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  centro: {
-    justifyContent: 'center',
-  },
-  mensagemVazia: {
-    alignItems: 'center',
-    padding: espacamento.lg,
-  },
-  tituloMensagem: {
-    fontSize: fonte.media,
-    fontWeight: 'bold',
-    color: cores.texto,
-    textAlign: 'center',
-  },
-  textoMensagem: {
-    fontSize: fonte.normal,
-    color: cores.textoSecundario,
-    textAlign: 'center',
-    marginTop: espacamento.sm,
-  },
-  botaoVoltar: {
-    marginTop: espacamento.lg,
-  },
-  conteudo: {
-    padding: espacamento.md,
-  },
-  foto: {
-    width: '100%',
-    height: 260,
-    borderRadius: raio.md,
-    backgroundColor: cores.superficie,
-    marginBottom: espacamento.md,
-  },
-  placeholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: cores.borda,
-  },
-  iconePlaceholder: {
-    fontSize: 72,
-    textAlign: 'center',
-  },
-  nome: {
-    fontSize: fonte.titulo,
-    fontWeight: 'bold',
-    color: cores.texto,
-  },
-  selo: {
-    alignSelf: 'flex-start',
-    borderRadius: raio.pill,
-    paddingHorizontal: espacamento.md,
-    paddingVertical: 4,
-    marginTop: espacamento.sm,
-  },
-  textoSelo: {
-    fontSize: fonte.normal,
-    fontWeight: 'bold',
-  },
-  bloco: {
-    backgroundColor: cores.superficie,
-    borderRadius: raio.md,
-    borderWidth: 1,
-    borderColor: cores.borda,
-    marginVertical: espacamento.md,
-    paddingHorizontal: espacamento.md,
-  },
-  linha: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: espacamento.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: cores.borda,
-  },
-  rotulo: {
-    fontSize: fonte.normal,
-    color: cores.textoSecundario,
-  },
-  valor: {
-    fontSize: fonte.normal,
-    fontWeight: '600',
-    color: cores.texto,
-  },
-  botaoAcao: {
-    marginTop: espacamento.sm,
-  },
-  botaoRemover: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: raio.md,
-    borderWidth: 1,
-    borderColor: cores.erro,
-  },
-  textoRemover: {
-    color: cores.erro,
-    fontSize: fonte.normal,
-    fontWeight: 'bold',
-  },
-  botaoDesabilitado: {
-    opacity: 0.6,
-  },
-});
+function criarEstilos(cores) {
+  return StyleSheet.create({
+    centro: {
+      justifyContent: 'center',
+    },
+    mensagemVazia: {
+      alignItems: 'center',
+      padding: espacamento.lg,
+    },
+    tituloMensagem: {
+      fontSize: fonte.media,
+      fontWeight: 'bold',
+      color: cores.texto,
+      textAlign: 'center',
+    },
+    textoMensagem: {
+      fontSize: fonte.normal,
+      color: cores.textoSecundario,
+      textAlign: 'center',
+      marginTop: espacamento.sm,
+    },
+    botaoVoltar: {
+      marginTop: espacamento.lg,
+    },
+    conteudo: {
+      padding: espacamento.md,
+    },
+    foto: {
+      width: '100%',
+      height: 260,
+      borderRadius: raio.md,
+      backgroundColor: cores.superficie,
+      marginBottom: espacamento.md,
+    },
+    placeholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: cores.borda,
+    },
+    iconePlaceholder: {
+      fontSize: 72,
+      textAlign: 'center',
+    },
+    nome: {
+      fontSize: fonte.titulo,
+      fontWeight: 'bold',
+      color: cores.texto,
+    },
+    selo: {
+      alignSelf: 'flex-start',
+      borderRadius: raio.pill,
+      paddingHorizontal: espacamento.md,
+      paddingVertical: 4,
+      marginTop: espacamento.sm,
+    },
+    textoSelo: {
+      fontSize: fonte.normal,
+      fontWeight: 'bold',
+    },
+    bloco: {
+      backgroundColor: cores.superficie,
+      borderRadius: raio.md,
+      borderWidth: 1,
+      borderColor: cores.borda,
+      marginVertical: espacamento.md,
+      paddingHorizontal: espacamento.md,
+    },
+    linha: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: espacamento.sm + 2,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: cores.borda,
+    },
+    rotulo: {
+      fontSize: fonte.normal,
+      color: cores.textoSecundario,
+    },
+    valor: {
+      fontSize: fonte.normal,
+      fontWeight: '600',
+      color: cores.texto,
+    },
+    botaoAcao: {
+      marginTop: espacamento.sm,
+    },
+    botaoRemover: {
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderRadius: raio.md,
+      borderWidth: 1,
+      borderColor: cores.erro,
+    },
+    textoRemover: {
+      color: cores.erro,
+      fontSize: fonte.normal,
+      fontWeight: 'bold',
+    },
+    botaoDesabilitado: {
+      opacity: 0.6,
+    },
+  });
+}
