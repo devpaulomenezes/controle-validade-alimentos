@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   FlatList,
+  RefreshControl,
   ActivityIndicator,
   StyleSheet,
   Alert,
@@ -14,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import ProdutoCard from '../components/ProdutoCard';
 import EmptyState from '../components/EmptyState';
 import PainelDashboard from '../components/PainelDashboard';
+import IndicadorSincronizacao from '../components/IndicadorSincronizacao';
 import { cores, situacoes, espacamento, raio, fonte, estilosBase } from '../theme/theme';
 import repositorio from '../data/OfflineFirstProdutoRepository';
 import AuthService from '../services/AuthService';
@@ -52,6 +54,9 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('todas');
   const [saindo, setSaindo] = useState(false);
+  const [pendentes, setPendentes] = useState(0); // alterações do usuário ainda na fila
+  const [sincronizando, setSincronizando] = useState(false);
+  const [atualizandoPelaLista, setAtualizandoPelaLista] = useState(false); // RefreshControl
 
   const abrirCadastro = useCallback(() => navigation.navigate('Cadastro'), [navigation]);
   const abrirDetalhe = useCallback(
@@ -142,16 +147,21 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }
     });
   }, [navigation, abrirCadastro, sair, saindo]);
 
-  // "Em andamento" fica numa ref, e não num estado: se este useCallback
-  // dependesse de um estado que ele mesmo altera, sua identidade mudaria a
-  // cada execução e o useFocusEffect abaixo o chamaria em loop.
-  const sincronizandoRef = useRef(false);
+  // Promessa da sincronização em andamento. Fica numa ref, e não num estado:
+  // se este useCallback dependesse de um estado que ele mesmo altera, sua
+  // identidade mudaria a cada execução e o useFocusEffect abaixo o chamaria
+  // em loop. Pedidos feitos durante ela (foco, toque no banner, puxar a lista)
+  // recebem a mesma promessa, em vez de disparar outra sincronização.
+  const sincronizacaoRef = useRef(null);
 
-  /** Envia a fila, baixa a base remota e recarrega a lista a partir do cache local. */
-  const sincronizarRepositorio = useCallback(async () => {
-    if (sincronizandoRef.current) return;
-    sincronizandoRef.current = true;
-    try {
+  /**
+   * Envia a fila, baixa a base remota, recarrega a lista a partir do cache
+   * local e atualiza a contagem de pendências do banner. Nunca rejeita.
+   */
+  const sincronizarRepositorio = useCallback(() => {
+    if (sincronizacaoRef.current) return sincronizacaoRef.current;
+
+    const sincronizarERecarregar = async () => {
       let sessaoExpirada = false;
       try {
         const resultado = await repositorio.sincronizar();
@@ -170,10 +180,38 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }
       } catch (erro) {
         tratarErroCarga(erro);
       }
-    } finally {
-      sincronizandoRef.current = false;
-    }
+      try {
+        setPendentes(await repositorio.quantidadePendente());
+      } catch (erro) {
+        console.error('[TelaInicial] erro ao contar pendências:', erro);
+      }
+    };
+
+    const executar = async () => {
+      setSincronizando(true);
+      try {
+        await sincronizarERecarregar();
+      } finally {
+        // Também após erro ou 401: o banner nunca fica preso em "Sincronizando...".
+        setSincronizando(false);
+      }
+    };
+
+    sincronizacaoRef.current = executar().finally(() => {
+      sincronizacaoRef.current = null;
+    });
+    return sincronizacaoRef.current;
   }, [tratarErroCarga, tratarSessaoExpirada]);
+
+  /** Puxar a lista para baixo: o indicador do RefreshControl fica até a sincronização terminar. */
+  const atualizarPelaLista = useCallback(async () => {
+    setAtualizandoPelaLista(true);
+    try {
+      await sincronizarRepositorio();
+    } finally {
+      setAtualizandoPelaLista(false);
+    }
+  }, [sincronizarRepositorio]);
 
   // Sincroniza e recarrega sempre que a tela ganha foco (ex.: ao voltar do cadastro).
   useFocusEffect(
@@ -247,24 +285,47 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }
     );
   }
 
-  if (erroCarga) {
-    return (
-      <View style={[estilosBase.tela, styles.centro]}>
-        <EmptyState icone="⚠️" mensagem="Falha ao carregar os produtos" descricao={erroCarga} />
-      </View>
-    );
-  }
+  // Banner de sincronização (some sozinho quando a fila esvazia) e puxar para
+  // atualizar: presentes também na lista vazia — ex.: o último produto foi
+  // removido offline e a remoção ainda aguarda conexão.
+  const indicador = (
+    <IndicadorSincronizacao
+      pendentes={pendentes}
+      sincronizando={sincronizando}
+      aoSincronizar={sincronizarRepositorio}
+    />
+  );
+  const controleAtualizacao = (
+    <RefreshControl
+      refreshing={atualizandoPelaLista}
+      onRefresh={atualizarPelaLista}
+      colors={[cores.primaria]}
+      tintColor={cores.primaria}
+    />
+  );
 
-  if (itens.length === 0) {
+  if (erroCarga || itens.length === 0) {
     return (
-      <View style={[estilosBase.tela, styles.centro]}>
-        <EmptyState textoAcao="+ Adicionar produto" onAcao={abrirCadastro} />
+      <View style={estilosBase.tela}>
+        {indicador}
+        <ScrollView
+          contentContainerStyle={styles.centroRolavel}
+          refreshControl={controleAtualizacao}
+          keyboardShouldPersistTaps="handled"
+        >
+          {erroCarga ? (
+            <EmptyState icone="⚠️" mensagem="Falha ao carregar os produtos" descricao={erroCarga} />
+          ) : (
+            <EmptyState textoAcao="+ Adicionar produto" onAcao={abrirCadastro} />
+          )}
+        </ScrollView>
       </View>
     );
   }
 
   return (
     <View style={estilosBase.tela}>
+      {indicador}
       <View style={styles.topo}>
         <PainelDashboard resumo={resumo} onSelecionar={setFiltro} />
         <TextInput
@@ -314,6 +375,7 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }
           />
         )}
         contentContainerStyle={styles.lista}
+        refreshControl={controleAtualizacao}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListEmptyComponent={
@@ -330,6 +392,10 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }
 
 const styles = StyleSheet.create({
   centro: {
+    justifyContent: 'center',
+  },
+  centroRolavel: {
+    flexGrow: 1,
     justifyContent: 'center',
   },
   areaBotaoCabecalho: {

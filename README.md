@@ -167,7 +167,7 @@ Os dados sobrevivem ao fechamento e à reabertura do aplicativo, o que foi valid
 ## Estrutura de pastas (implementada na issue #1)
 
     app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js, TelaDetalhe.js e TelaLogin.js)
-    components/    → componentes reutilizáveis (ProdutoCard.js, EmptyState.js, PainelDashboard.js)
+    components/    → componentes reutilizáveis (ProdutoCard.js, EmptyState.js, PainelDashboard.js, IndicadorSincronizacao.js)
     theme/         → tema visual central (theme.js)
     utils/         → utilitários auxiliares (formatoData.js)
     services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
@@ -424,6 +424,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - **`TelaLogin` (`__tests__/TelaLogin.test.js`, APP-06)**: renderiza a `TelaLogin` com o `AuthService` simulado — alternância entre "Entrar" e "Criar conta" (campo de nome e texto do botão), validações (campos vazios, nome no cadastro, e-mail sem `@`/domínio e senha curta, sem chamar o serviço), envio com sucesso (`aoAutenticar` uma vez, com o usuário), erro da API e falta de conexão em `Alert` (senha limpa) e estado de carregamento (`ActivityIndicator`, botão desabilitado e toque duplo sem envio duplicado).
 - **`AppSessao` (`__tests__/AppSessao.test.js`, APP-07)**: renderiza o `App.js` com o `NavigationContainer` e o native stack reais (telas simuladas) — sem sessão abre na `TelaLogin`; com sessão abre direto na lista; após o login a rota `Login` deixa de existir (o "voltar" não retorna a ela); "Sair" e sessão expirada voltam ao login, a segunda com o aviso.
 - **`TelaInicialSessao` (`__tests__/TelaInicialSessao.test.js`, APP-07)**: renderiza a `TelaInicial` com o repositório e o `AuthService` simulados — sincroniza uma única vez por foco (sem loop do `useFocusEffect`), "Sair" bloqueado com pendências na fila, "Sair" sem pendências na ordem limpar cache → logout → voltar ao login, falha ao limpar o cache sem deslogar, sessão expirada (`401`) apagando a sessão e falha de sincronização sem impedir a lista local. O teste do `OfflineFirstProdutoRepository` ganhou os casos de `quantidadePendente` e `limparCacheLocal`.
+- **`IndicadorSincronizacao` (`__tests__/IndicadorSincronizacao.test.js`, APP-08)**: o componente isolado (oculto sem pendências, singular e plural, "Sincronizando..." desabilitado, toque chamando `aoSincronizar` uma vez e nenhuma importação da fila ou de repositório) e a integração na `TelaInicial` (banner que some quando a fila esvazia, toque repetido sem sincronização duplicada, puxar a lista com o indicador até terminar — inclusive com uma sincronização já em andamento —, erro e `401` sem deixar "Sincronizando..." preso e lista vazia com banner e puxar para atualizar).
 
 ## Histórico de decisões
 
@@ -488,3 +489,6 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - 2026-11-20 — APP-07 (#29) concluída: `App.js` escolhe a stack pela sessão local (login ou lista,
   mesmo offline); as três telas usam o `OfflineFirstProdutoRepository`; botão "Sair" bloqueado com
   pendências na fila; `401` na sincronização volta ao login com o aviso de sessão expirada.
+- 2026-11-20 — APP-08 (#30) concluída: banner `IndicadorSincronizacao` na `TelaInicial` ("Modo
+  offline: X alteração(ões) aguardando conexão" / "Sincronizando...", toque para sincronizar) e
+  "puxar para atualizar" na lista; sem sincronização periódica em segundo plano (`setInterval`).

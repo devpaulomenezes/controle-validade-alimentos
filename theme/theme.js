@@ -16,6 +16,10 @@ export const cores = {
   borda: '#d9e0e8',
   erro: '#c62828',
   sucesso: '#2e7d32',
+  // Banner de sincronização (APP-08): alterações aguardando conexão / enviando.
+  aviso: '#9a5b00',
+  fundoAviso: '#fff4d6',
+  fundoInfo: '#e3f0fd',
 };
 
 /**
