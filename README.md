@@ -156,7 +156,7 @@ Os dados sobrevivem ao fechamento e à reabertura do aplicativo, o que foi valid
 
 ## Estrutura de pastas (implementada na issue #1)
 
-    app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js e TelaDetalhe.js)
+    app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js, TelaDetalhe.js e TelaLogin.js)
     components/    → componentes reutilizáveis (ProdutoCard.js, EmptyState.js, PainelDashboard.js)
     theme/         → tema visual central (theme.js)
     utils/         → utilitários auxiliares (formatoData.js)
@@ -402,6 +402,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - **`IntegracaoEdicao` (`__tests__/IntegracaoEdicao.test.js`, issue #19)**: edita um produto da base de 5 itens e confere a listagem, a ordenação, a situação calculada, os contadores do dashboard e o reagendamento do alerta.
 - **`TelaCadastroEdicao` (`__tests__/TelaCadastroEdicao.test.js`, issue #19)**: renderiza a `TelaCadastro` (com `react-test-renderer`, já instalado pelo `jest-expo`) nos modos criação e edição — pré-preenchimento, `atualizar()` com `id` e `dataDeCadastro` preservados, troca e remoção de foto com apagamento da antiga, falha de gravação sem "Produto salvo" e sem alterar a base, e descarte da foto nova quando `atualizar()` falha.
 - **`OfflineFirstProdutoRepository` (`__tests__/OfflineFirstProdutoRepository.test.js`, APP-05)**: com cache local, fila e API fakes em memória — escritas e leituras sem conexão sem lançar erro, um item na fila por escrita (com `usuarioId`), escrita que não espera a API, envio na ordem de criação com o mapeamento de cada tipo, retomada sem reenvio após falha no meio, `5xx` e `401` interrompendo e mantendo a fila, `4xx` descartando só o item, itens de outros usuários intocados, `substituirTodos` só com a fila vazia, chamadas simultâneas sem envio duplicado, trava liberada após erro e escrita feita durante o download preservada no cache.
+- **`TelaLogin` (`__tests__/TelaLogin.test.js`, APP-06)**: renderiza a `TelaLogin` com o `AuthService` simulado — alternância entre "Entrar" e "Criar conta" (campo de nome e texto do botão), validações (campos vazios, nome no cadastro, e-mail sem `@`/domínio e senha curta, sem chamar o serviço), envio com sucesso (`aoAutenticar` uma vez, com o usuário), erro da API e falta de conexão em `Alert` (senha limpa) e estado de carregamento (`ActivityIndicator`, botão desabilitado e toque duplo sem envio duplicado).
 
 ## Histórico de decisões
 
@@ -461,3 +462,5 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - 2026-11-20 — APP-05 (#27) concluída: `OfflineFirstProdutoRepository` coordena cache local, fila
   offline e API — escritas locais primeiro e envio em segundo plano, fila FIFO por usuário, `401`
   sinalizado para a tela e cache substituído só com a fila vazia.
+- 2026-11-20 — APP-06 (#28) concluída: `TelaLogin` com os modos "Entrar" e "Criar conta", validação
+  no formulário, carregamento no botão e erros em `Alert`; avisa o `App.js` por `aoAutenticar`.
