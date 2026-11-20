@@ -18,6 +18,14 @@ jest.mock('../services/AuthService', () => ({
   default: { obterSessao: jest.fn() },
 }));
 
+// O ThemeProvider (TEMA-01) lê tema.json ao abrir: sem o arquivo, usa o tema claro.
+jest.mock('expo-file-system/legacy', () => ({
+  documentDirectory: '/documentos-teste/',
+  getInfoAsync: jest.fn(async () => ({ exists: false })),
+  readAsStringAsync: jest.fn(async () => ''),
+  writeAsStringAsync: jest.fn(async () => {}),
+}));
+
 jest.mock('../app/TelaLogin', () => {
   const React = require('react');
   const { Text } = require('react-native');

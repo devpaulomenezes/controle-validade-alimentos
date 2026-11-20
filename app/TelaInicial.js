@@ -46,7 +46,15 @@ async function carregarItens() {
   return produtos.map((produto) => ({ produto, situacao: classificarSituacao(produto) }));
 }
 
-export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }) {
+/**
+ * @param {Object} props
+ * @param {Object} props.navigation
+ * @param {() => void} [props.aoDeslogar] - Avisa o App.js após o logout (APP-07).
+ * @param {() => void} [props.aoSessaoExpirada] - Avisa o App.js após um 401 (APP-07).
+ * @param {React.ComponentType} [props.BotaoTema] - Botão de alternância do tema, vindo do
+ *   App.js (TEMA-01); exibido ao lado do "+ Novo", pois este cabeçalho define o próprio headerRight.
+ */
+export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada, BotaoTema }) {
   const [itens, setItens] = useState([]); // [{ produto, situacao }]
   const [carregando, setCarregando] = useState(true);
   const [removendo, setRemovendo] = useState(false);
@@ -134,18 +142,21 @@ export default function TelaInicial({ navigation, aoDeslogar, aoSessaoExpirada }
         </TouchableOpacity>
       ),
       headerRight: () => (
-        <TouchableOpacity
-          onPress={abrirCadastro}
-          accessibilityRole="button"
-          accessibilityLabel="Adicionar produto"
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={styles.areaBotaoCabecalho}
-        >
-          <Text style={styles.botaoCabecalho}>+ Novo</Text>
-        </TouchableOpacity>
+        <View style={styles.acoesCabecalho}>
+          {BotaoTema ? <BotaoTema /> : null}
+          <TouchableOpacity
+            onPress={abrirCadastro}
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar produto"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.areaBotaoCabecalho}
+          >
+            <Text style={styles.botaoCabecalho}>+ Novo</Text>
+          </TouchableOpacity>
+        </View>
       ),
     });
-  }, [navigation, abrirCadastro, sair, saindo]);
+  }, [navigation, abrirCadastro, sair, saindo, BotaoTema]);
 
   // Promessa da sincronização em andamento. Fica numa ref, e não num estado:
   // se este useCallback dependesse de um estado que ele mesmo altera, sua
@@ -397,6 +408,10 @@ const styles = StyleSheet.create({
   centroRolavel: {
     flexGrow: 1,
     justifyContent: 'center',
+  },
+  acoesCabecalho: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   areaBotaoCabecalho: {
     paddingVertical: espacamento.sm,

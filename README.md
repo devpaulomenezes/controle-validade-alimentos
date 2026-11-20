@@ -22,6 +22,8 @@ https://github.com/user-attachments/assets/20aa1911-a97f-4cdf-a4ca-163aac567105
   do MVP por instabilidade técnica.
 - **Notificações:** locais, 3 dias antes do vencimento (expo-notifications; atenção à permissão
   no Android 13+)
+- **Tema claro e escuro (TEMA-01, opcional da P1):** alternância pelo botão do cabeçalho, sem
+  reiniciar o app; a preferência fica salva em `tema.json`.
 
 ## Arquitetura e padrão de projeto
 
@@ -168,7 +170,7 @@ Os dados sobrevivem ao fechamento e à reabertura do aplicativo, o que foi valid
 
     app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js, TelaDetalhe.js e TelaLogin.js)
     components/    → componentes reutilizáveis (ProdutoCard.js, EmptyState.js, PainelDashboard.js, IndicadorSincronizacao.js)
-    theme/         → tema visual central (theme.js)
+    theme/         → tema visual central (theme.js) e tema claro/escuro (ThemeContext.js, TEMA-01)
     utils/         → utilitários auxiliares (formatoData.js)
     services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
     data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
@@ -347,6 +349,29 @@ A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi remo
   `App.js` e o botão "Testes" do cabeçalho foram removidos; o fluxo real cobre as duas validações.
 - **Testes unitários da #6** continuam passando após as integrações (`npx jest`).
 
+## Interface: tema claro e escuro (TEMA-01)
+
+Item opcional da P1. O botão 🌙/☀️ do cabeçalho alterna o tema na hora, sem reiniciar o app, e a
+escolha continua valendo depois de fechar e reabrir.
+
+- **`theme/theme.js`**: as exportações estáticas (`cores`, `situacoes`, `estilosBase`,
+  `espacamento`, `raio` e `fonte`) continuam iguais, com a paleta clara. Foram acrescentados a
+  paleta escura (`coresEscuras` e `situacoesEscuras`, com as mesmas chaves), `criarEstilosBase(paleta)`
+  e `temas` (`claro` e `escuro`). Na paleta escura, todos os pares de texto e fundo usados no app
+  têm contraste de pelo menos 4,5:1 (WCAG AA).
+- **`theme/ThemeContext.js`**: `ThemeProvider` (envolve o app no `App.js`) e o hook `useTema()`, que
+  devolve `{ nome, escuro, cores, situacoes, estilosBase, alternarTema, carregando }`. Fora do
+  `ThemeProvider`, `useTema()` lança um erro que explica o motivo.
+- **Persistência**: a preferência vai para `tema.json` (`{ "tema": "escuro" }`), na pasta de
+  documentos do app, via `expo-file-system/legacy` — o mesmo padrão de `produtos.json`. Arquivo
+  ausente ou inválido assume o tema claro; falha ao gravar não desfaz a troca. O `App.js` espera a
+  leitura antes de mostrar as telas, para não abrir no tema errado.
+- **Cabeçalho (`App.js`)**: as cores do cabeçalho, do fundo e do `NavigationContainer` seguem o
+  tema ativo. O botão fica no `headerRight` das telas; na `TelaInicial`, que define o próprio
+  `headerRight`, ele aparece ao lado do "+ Novo" (o `App.js` o passa pela prop `BotaoTema`).
+- **Limitação conhecida**: os diálogos do sistema (`Alert` e o seletor de data) seguem o
+  `userInterfaceStyle: "light"` do `app.json` e continuam claros no tema escuro.
+
 ## Fluxo de trabalho Git (regra do grupo)
 
 - Desenvolvimento exclusivamente na branch **`dev`**
@@ -425,6 +450,7 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
 - **`AppSessao` (`__tests__/AppSessao.test.js`, APP-07)**: renderiza o `App.js` com o `NavigationContainer` e o native stack reais (telas simuladas) — sem sessão abre na `TelaLogin`; com sessão abre direto na lista; após o login a rota `Login` deixa de existir (o "voltar" não retorna a ela); "Sair" e sessão expirada voltam ao login, a segunda com o aviso.
 - **`TelaInicialSessao` (`__tests__/TelaInicialSessao.test.js`, APP-07)**: renderiza a `TelaInicial` com o repositório e o `AuthService` simulados — sincroniza uma única vez por foco (sem loop do `useFocusEffect`), "Sair" bloqueado com pendências na fila, "Sair" sem pendências na ordem limpar cache → logout → voltar ao login, falha ao limpar o cache sem deslogar, sessão expirada (`401`) apagando a sessão e falha de sincronização sem impedir a lista local. O teste do `OfflineFirstProdutoRepository` ganhou os casos de `quantidadePendente` e `limparCacheLocal`.
 - **`IndicadorSincronizacao` (`__tests__/IndicadorSincronizacao.test.js`, APP-08)**: o componente isolado (oculto sem pendências, singular e plural, "Sincronizando..." desabilitado, toque chamando `aoSincronizar` uma vez e nenhuma importação da fila ou de repositório) e a integração na `TelaInicial` (banner que some quando a fila esvazia, toque repetido sem sincronização duplicada, puxar a lista com o indicador até terminar — inclusive com uma sincronização já em andamento —, erro e `401` sem deixar "Sincronizando..." preso e lista vazia com banner e puxar para atualizar).
+- **`TemaClaroEscuro` (`__tests__/TemaClaroEscuro.test.js`, TEMA-01)**: exportações estáticas de `theme/theme.js` preservadas com a paleta clara, paleta escura com as mesmas chaves, tema claro por padrão (sem `tema.json`), troca para o escuro e de volta sem reiniciar, preferência gravada em `tema.json` e mantida ao reabrir, `tema.json` inválido ou com valor desconhecido assumindo o claro, falha de gravação sem desfazer a troca, alternância antes do fim da leitura respeitada, erro de `useTema()` fora do `ThemeProvider` e o botão do cabeçalho do `App.js` alternando o tema.
 
 ## Histórico de decisões
 

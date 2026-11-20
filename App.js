@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Alert, ActivityIndicator, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import TelaInicial from './app/TelaInicial';
@@ -8,18 +8,46 @@ import TelaCadastro from './app/TelaCadastro';
 import TelaDetalhe from './app/TelaDetalhe';
 import TelaLogin from './app/TelaLogin';
 import AuthService from './services/AuthService';
-import { cores, estilosBase } from './theme/theme';
+import { ThemeProvider, useTema } from './theme/ThemeContext';
+import { espacamento, fonte } from './theme/theme';
 
 const Stack = createNativeStackNavigator();
 
+/** Raiz do app: o ThemeProvider (TEMA-01) envolve toda a navegação. */
+export default function App() {
+  return (
+    <ThemeProvider>
+      <Navegacao />
+    </ThemeProvider>
+  );
+}
+
+/** Botão do cabeçalho que alterna entre o tema claro e o escuro (TEMA-01). */
+function BotaoAlternarTema() {
+  const { escuro, alternarTema, cores } = useTema();
+  return (
+    <TouchableOpacity
+      onPress={alternarTema}
+      accessibilityRole="button"
+      accessibilityLabel={escuro ? 'Usar tema claro' : 'Usar tema escuro'}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={styles.botaoTema}
+    >
+      <Text style={[styles.iconeTema, { color: cores.textoCabecalho }]}>{escuro ? '☀️' : '🌙'}</Text>
+    </TouchableOpacity>
+  );
+}
+
 /**
- * Raiz do app (APP-07). Ao abrir, lê a sessão local (sem rede) e escolhe qual
+ * Navegação (APP-07). Ao abrir, lê a sessão local (sem rede) e escolhe qual
  * conjunto de telas mostrar. Os dois conjuntos são filhos mutuamente
  * exclusivos do mesmo Stack.Navigator: quando `autenticado` muda, o React
  * Navigation troca as rotas e zera o histórico, então o "voltar" nunca leva
  * de volta ao login depois de autenticar (sem navigation.reset() manual).
+ * As cores do cabeçalho e do fundo seguem o tema ativo (TEMA-01).
  */
-export default function App() {
+function Navegacao() {
+  const tema = useTema();
   const [verificandoSessao, setVerificandoSessao] = useState(true);
   const [autenticado, setAutenticado] = useState(false);
 
@@ -49,21 +77,40 @@ export default function App() {
     );
   }, []);
 
-  if (verificandoSessao) {
+  // Tema do NavigationContainer: evita fundo claro nas transições do tema escuro.
+  const temaNavegacao = useMemo(() => {
+    const base = tema.escuro ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: tema.cores.primaria,
+        background: tema.cores.fundo,
+        card: tema.cores.cabecalho,
+        text: tema.cores.textoCabecalho,
+        border: tema.cores.borda,
+        notification: tema.cores.erro,
+      },
+    };
+  }, [tema]);
+
+  // Espera a sessão e a preferência de tema, para não piscar a tela ou o tema errado.
+  if (verificandoSessao || tema.carregando) {
     return (
-      <View style={[estilosBase.tela, styles.centro]}>
-        <ActivityIndicator size="large" color={cores.primaria} />
+      <View style={[tema.estilosBase.tela, styles.centro]}>
+        <ActivityIndicator size="large" color={tema.cores.primaria} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={temaNavegacao}>
       <Stack.Navigator
         screenOptions={{
-          headerStyle: { backgroundColor: cores.primaria },
-          headerTintColor: cores.textoInverso,
-          contentStyle: { backgroundColor: cores.fundo },
+          headerStyle: { backgroundColor: tema.cores.cabecalho },
+          headerTintColor: tema.cores.textoCabecalho,
+          contentStyle: { backgroundColor: tema.cores.fundo },
+          headerRight: () => <BotaoAlternarTema />,
         }}
       >
         {autenticado ? (
@@ -74,6 +121,7 @@ export default function App() {
                   {...props}
                   aoDeslogar={aoDeslogar}
                   aoSessaoExpirada={aoSessaoExpirada}
+                  BotaoTema={BotaoAlternarTema}
                 />
               )}
             </Stack.Screen>
@@ -95,5 +143,12 @@ const styles = StyleSheet.create({
   centro: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  botaoTema: {
+    paddingVertical: espacamento.sm,
+    paddingHorizontal: espacamento.sm,
+  },
+  iconeTema: {
+    fontSize: fonte.media,
   },
 });
