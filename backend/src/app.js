@@ -1,17 +1,17 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { pool, inicializarBanco } = require('./banco');
+const { obterSegredo } = require('./servicos/autenticacao');
+const rotasAuth = require('./rotas/auth');
+const autenticar = require('./middlewares/autenticacao');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
 
 // Colunas com alias (Postgres converte identificadores sem aspas para minúsculas).
 // Datas são devolvidas como texto para evitar conversões de fuso pelo driver.
@@ -29,86 +29,12 @@ function erro(res, status, mensagem) {
   return res.status(status).json({ mensagem });
 }
 
-function gerarToken(usuario) {
-  return jwt.sign({ id: usuario.id }, JWT_SECRET, { expiresIn: '7d' });
-}
-
 function textoValido(valor) {
   return typeof valor === 'string' && valor.trim() !== '';
 }
 
-// ---------- Middleware de autenticação ----------
-function autenticar(req, res, next) {
-  const cabecalho = req.headers.authorization || '';
-  const [tipo, token] = cabecalho.split(' ');
-
-  if (tipo !== 'Bearer' || !token) {
-    return erro(res, 401, 'Token não informado.');
-  }
-
-  try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    req.usuarioId = payload.id;
-    next();
-  } catch (e) {
-    return erro(res, 401, 'Token inválido.');
-  }
-}
-
 // ---------- Autenticação ----------
-app.post('/auth/registro', async (req, res, next) => {
-  try {
-    const { nome, email, senha } = req.body || {};
-    if (!textoValido(nome) || !textoValido(email) || !textoValido(senha)) {
-      return erro(res, 400, 'Informe nome, email e senha.');
-    }
-
-    const emailNormalizado = email.trim().toLowerCase();
-    const senhaHash = await bcrypt.hash(senha, 10);
-
-    try {
-      const { rows } = await pool.query(
-        `INSERT INTO usuarios (nome, email, "senhaHash")
-         VALUES ($1, $2, $3)
-         RETURNING id, nome, email`,
-        [nome.trim(), emailNormalizado, senhaHash]
-      );
-      const usuario = rows[0];
-      return res.status(201).json({ token: gerarToken(usuario), usuario });
-    } catch (e) {
-      if (e.code === '23505') {
-        return erro(res, 409, 'E-mail já cadastrado.');
-      }
-      throw e;
-    }
-  } catch (e) {
-    next(e);
-  }
-});
-
-app.post('/auth/login', async (req, res, next) => {
-  try {
-    const { email, senha } = req.body || {};
-    if (!textoValido(email) || !textoValido(senha)) {
-      return erro(res, 401, 'Credenciais inválidas.');
-    }
-
-    const { rows } = await pool.query(
-      `SELECT id, nome, email, "senhaHash" AS "senhaHash"
-       FROM usuarios WHERE email = $1`,
-      [email.trim().toLowerCase()]
-    );
-    const registro = rows[0];
-    if (!registro || !(await bcrypt.compare(senha, registro.senhaHash))) {
-      return erro(res, 401, 'Credenciais inválidas.');
-    }
-
-    const usuario = { id: registro.id, nome: registro.nome, email: registro.email };
-    return res.status(200).json({ token: gerarToken(usuario), usuario });
-  } catch (e) {
-    next(e);
-  }
-});
+app.use('/auth', rotasAuth);
 
 // ---------- Produtos ----------
 app.get('/produtos', autenticar, async (req, res, next) => {
@@ -246,16 +172,18 @@ app.use((err, req, res, next) => {
 
 // ---------- Inicialização ----------
 async function iniciar() {
-  if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET não definido no .env');
-  }
+  obterSegredo();
   await inicializarBanco();
   app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
   });
 }
 
-iniciar().catch((e) => {
-  console.error('Falha ao iniciar o servidor:', e);
-  process.exit(1);
-});
+if (require.main === module) {
+  iniciar().catch((e) => {
+    console.error('Falha ao iniciar o servidor:', e);
+    process.exit(1);
+  });
+}
+
+module.exports = { app, iniciar };
