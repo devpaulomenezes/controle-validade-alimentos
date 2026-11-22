@@ -32,7 +32,15 @@ As rotas `/produtos` exigem o cabeçalho:
 Authorization: Bearer <token>
 ```
 
-O token é obtido em `/auth/registro` ou `/auth/login` e expira em 7 dias. Sem token ou com token inválido/expirado, a resposta é `401`.
+O token é obtido em `/auth/registro` ou `/auth/login` e expira em 30 dias. Sem token, com token inválido ou expirado, a resposta é `401` com uma destas mensagens:
+
+| Situação                              | Mensagem               |
+| ------------------------------------- | ---------------------- |
+| Cabeçalho ausente ou não é `Bearer`   | `Token não informado.` |
+| Token malformado ou assinatura errada | `Token inválido.`      |
+| Token expirado                        | `Token expirado.`      |
+
+O servidor se recusa a iniciar se `JWT_SECRET` não estiver definido ou estiver vazio. As senhas são gravadas somente como hash bcrypt (custo 12) e nunca aparecem em respostas.
 
 ## Formato de erro
 
@@ -69,8 +77,8 @@ Resposta `201`:
   "usuario": { "id": 1, "nome": "Maria", "email": "maria@email.com" }
 }
 ```
-- `400`: campo ausente ou vazio.
-- `409`: e-mail já cadastrado.
+- `400`: `{ "mensagem": "Campos obrigatórios não informados: <campos separados por vírgula>." }`, `"E-mail inválido."` (formato `algo@algo.algo`) ou `"A senha deve ter no mínimo 6 caracteres."`.
+- `409`: `{ "mensagem": "E-mail já cadastrado." }`.
 
 ### POST /auth/login
 
@@ -79,7 +87,16 @@ Requisição:
 { "email": "maria@email.com", "senha": "123456" }
 ```
 Resposta `200`: mesmo formato do registro.
-- `401`: `{ "mensagem": "Credenciais inválidas." }`.
+- `401`: `{ "mensagem": "Credenciais inválidas." }` — a mesma resposta para senha errada, e-mail inexistente ou campos ausentes.
+
+## Testes
+
+```bash
+cd backend
+npm test
+```
+
+Os testes (Jest + supertest, em `test/auth.test.js`) não usam banco real: a conexão `pg` é substituída por um armazenamento em memória e o `JWT_SECRET` é definido pelo próprio teste. O bcrypt é o real, com custo 12.
 
 ## Produtos — detalhes
 
