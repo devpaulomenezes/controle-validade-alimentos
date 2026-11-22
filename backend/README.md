@@ -24,6 +24,48 @@ API REST em Node.js (Express + PostgreSQL) com autenticação JWT.
    ```
    As tabelas `usuarios` e `produtos` são criadas automaticamente na inicialização.
 
+## Ambiente de produção
+
+A API está disponível em:
+
+```
+https://controle-validade-alimentos.onrender.com
+```
+
+### Passo a passo do deploy
+
+1. **Neon:** crie o banco PostgreSQL e copie a string de conexão (`postgresql://...`) com `?sslmode=require` no final.
+2. **Render:** crie um Web Service a partir do repositório, na branch `dev`, com:
+   - Root Directory: `backend`
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+   - Plano: Free
+   - Health Check Path: vazio
+3. **Variáveis de ambiente (painel do Render):**
+   - `DATABASE_URL`: a string de conexão do Neon.
+   - `JWT_SECRET`: gerado com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+   - Não é preciso cadastrar `PORT`.
+4. Faça o deploy e confirme nos logs a mensagem de servidor em execução. As tabelas `usuarios` e `produtos` são criadas na inicialização.
+
+### Exemplo de uso em produção
+
+Login com um usuário já cadastrado:
+
+```bash
+curl -X POST https://controle-validade-alimentos.onrender.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"seu@email.com\",\"senha\":\"sua-senha\"}"
+```
+
+Lembre-se de que o registro exige o campo `nome`, além de `email` e `senha`.
+
+### Observações sobre produção
+
+- O serviço roda no plano Free do Render. Após um período sem uso, a primeira requisição pode levar até 1 minuto.
+- O log pode exibir um aviso sobre os modos de SSL (`prefer`, `require` e `verify-ca` tratados como `verify-full`). É um aviso informativo: a conexão com o Neon funciona normalmente.
+- Não use usuários de teste no banco de produção. Remova registros criados para testes ou use um banco de homologação.
+- Os limites atuais dos planos gratuitos do Render e do Neon mudam com frequência. Confira-os na documentação oficial de cada serviço antes de publicar.
+
 ## Autenticação
 
 As rotas `/produtos` exigem o cabeçalho:

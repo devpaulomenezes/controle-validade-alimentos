@@ -438,6 +438,49 @@ npm start
 
 O servidor sobe na porta definida em `PORT` (padrão 3000). O contrato completo da API está em [backend/README.md](backend/README.md).
 
+## Deploy do backend (Render + Neon)
+
+O backend está publicado na branch `dev` em um Web Service do Render, com banco PostgreSQL no Neon.
+
+- **URL pública:** https://controle-validade-alimentos.onrender.com
+- **Branch:** `dev` (deploy automático a cada commit nessa branch)
+- **Root Directory:** `backend`
+- **Build Command:** `npm install`
+- **Start Command:** `npm start`
+- **Plano:** Free ($0/mês)
+- **Health Check Path:** vazio (o backend não expõe uma rota de verificação de saúde)
+
+### Variáveis de ambiente no Render
+
+| Variável | Descrição |
+| -------------- | --------------------------------------------------------------------------- |
+| `DATABASE_URL` | String de conexão do Neon, com `?sslmode=require` no final |
+| `JWT_SECRET` | Segredo usado para assinar os tokens (gerado com 32 bytes aleatórios) |
+
+A variável `PORT` não é cadastrada manualmente: o Render a define automaticamente.
+
+As variáveis sensíveis ficam somente no painel do Render. Não as registre no repositório, em issues ou em prints.
+
+### Apontando o app para a API pública
+
+Na versão entregue, o `EXPO_PUBLIC_API_URL` do app deve apontar para a URL pública, e não para `localhost` ou para o IP da rede local:
+
+```
+EXPO_PUBLIC_API_URL=https://controle-validade-alimentos.onrender.com
+```
+
+### Limitação do plano Free
+
+No plano Free, o serviço entra em modo de suspensão após cerca de 15 minutos sem requisições. A primeira requisição depois desse período pode demorar até 1 minuto para responder. Esse comportamento é esperado e não indica falha.
+
+### Verificação rápida
+
+```bash
+curl https://controle-validade-alimentos.onrender.com/
+```
+
+Resposta esperada: `{"mensagem":"Rota não encontrada."}`. Ela confirma que o servidor está no ar, pois a raiz não é uma rota da API.
+
 ## Testes
 
 Testes unitários e de integração executados com **Jest** utilizando o preset **`jest-expo`**.
@@ -530,3 +573,4 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   de alternância no cabeçalho, preferência em `tema.json` e os componentes `ProdutoCard`,
   `PainelDashboard` e `EmptyState` seguindo o tema ativo; as telas e o banner de sincronização
   também seguem o tema (`useTemaOpcional()` nas telas).
+- 2026-11-22 — Issue #34 (deploy): backend publicado no Render (branch `dev`, root `backend`, plano Free) com banco PostgreSQL no Neon. Variáveis `DATABASE_URL` e `JWT_SECRET` configuradas no painel do Render. Validados em produção: `GET /` (servidor no ar), `POST /auth/registro` (201), `POST /auth/login` (200 e 401). Pendente: validar a criação de produto pela URL pública e o registro no Neon.
