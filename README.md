@@ -573,4 +573,4 @@ Testes unitários e de integração executados com **Jest** utilizando o preset 
   de alternância no cabeçalho, preferência em `tema.json` e os componentes `ProdutoCard`,
   `PainelDashboard` e `EmptyState` seguindo o tema ativo; as telas e o banner de sincronização
   também seguem o tema (`useTemaOpcional()` nas telas).
-- 2026-11-22 — Issue #34 (deploy): backend publicado no Render (branch `dev`, root `backend`, plano Free) com banco PostgreSQL no Neon. Variáveis `DATABASE_URL` e `JWT_SECRET` configuradas no painel do Render. Validados em produção: `GET /` (servidor no ar), `POST /auth/registro` (201), `POST /auth/login` (200 e 401). Pendente: validar a criação de produto pela URL pública e o registro no Neon.
+- 2026-11-22 — Issue #34 (deploy): backend publicado no Render (branch `dev`, root `backend`, plano Free) com banco PostgreSQL no Neon. Variáveis `DATABASE_URL` e `JWT_SECRET` configuradas no painel do Render. Validados em produção: `GET /` (servidor no ar), `POST /auth/registro` (201), `POST /auth/login` (200 e 401). Validado: criação de produto pela URL pública e registro no Neon.
