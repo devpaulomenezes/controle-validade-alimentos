@@ -1,576 +1,114 @@
 # Controle de Validade de Alimentos
 
-Aplicativo mobile (React Native + Expo) para registro e controle de produtos perecíveis:
-cadastro com foto, alerta de itens "vencendo esta semana" e notificações locais antes do vencimento.
-
 **Disciplina:** Programação para Dispositivos Móveis
-**Grupo:** Paulo Moura, Arthur Alexandre e João Victor Lucena
-
-**Vídeo de demonstração:** 
-
-https://github.com/user-attachments/assets/20aa1911-a97f-4cdf-a4ca-163aac567105
-
-## Decisões do projeto (fonte de verdade)
-
-- **Plataforma:** Android · **Stack:** React Native (JSX) com Expo, testado no Expo Go
-- **Navegação:** React Navigation (native stack, rotas: Inicial, Cadastro e TelaDetalhe; sem
-  sessão salva, apenas Login — APP-07).
-- **Escopo da Etapa 1:** CRUD completo com persistência local em JSON (expo-file-system)
-- **Escopo da Etapa 2:** persistência em banco REMOTO via API (mesma interface do repositório)
-- **Identificação do produto:** foto do alimento/rótulo pela câmera. Sem código de barras e sem
-  OCR (a validade não vem do EAN; a entrada de data é manual com date picker). OCR descartado
-  do MVP por instabilidade técnica.
-- **Notificações:** locais, 3 dias antes do vencimento (expo-notifications; atenção à permissão
-  no Android 13+)
-- **Tema claro e escuro (TEMA-01, opcional da P1):** alternância pelo botão do cabeçalho, sem
-  reiniciar o app; a preferência fica salva em `tema.json`.
-
-## Arquitetura e padrão de projeto
-
-Padrão central: **Repository**, em arquitetura em camadas (MVC simplificado).
-
-    Tela (Screen) → ServicoValidade (regras de negócio) → ProdutoRepository (interface)
-                                                              ↓
-                                                  JsonProdutoRepository (Etapa 1)
-                                                              ↓
-                                                  produtos.json (FileSystem do dispositivo)
-
-Na Etapa 2 (APP-07), as telas passaram a usar o `OfflineFirstProdutoRepository`, que implementa a
-mesma interface e coordena três fontes:
-
-    Tela → OfflineFirstProdutoRepository ─┬→ JsonProdutoRepository (cache local, produtos.json)
-                                          ├→ FilaSincronizacao (alterações offline, fila_sincronizacao.json)
-                                          └→ ApiProdutoRepository → API remota (EXPO_PUBLIC_API_URL)
-
-- **Por que Repository:** as telas nunca acessam a origem dos dados diretamente. Na Etapa 2,
-  trocou-se apenas a implementação importada pelas telas (JsonProdutoRepository →
-  OfflineFirstProdutoRepository), sem mudar o CRUD das telas.
-- **Singleton** no repositório: fonte de verdade única para todas as telas.
-- **Modelo:** Produto = id, nome, quantidade, dataDeValidade, fotoUri, dataDeCadastro.
-  Regras de vencimento (dias restantes; vencido / esta semana / este mês / ok) centralizadas
-  no ServicoValidade.
-
-## Contrato de dados (acordado na issue #1)
-
-O contrato de dados é a base para que os integrantes desenvolvam suas partes de forma independente,
-usando dados mockados contra essa interface. A implementação concreta em JSON (`JsonProdutoRepository`)
-foi concluída na issue #3 — ver seção abaixo.
-
-**Modelo `Produto`:**
-- `id`: Identificador único do produto.
-- `nome`: Nome do produto.
-- `quantidade`: Quantidade em estoque.
-- `dataDeValidade`: Data de validade em formato ISO 8601 (YYYY-MM-DD), armazenada como string.
-- `fotoUri`: URI local da foto do produto/rótulo.
-- `dataDeCadastro`: Data de cadastro em formato ISO 8601, armazenada como string.
-
-**Interface `ProdutoRepository`:**
-- `listar()`: Lista todos os produtos cadastrados.
-- `salvar(produto)`: Salva um novo produto.
-- `atualizar(produto)`: Atualiza um produto existente.
-- `remover(id)`: Remove um produto pelo seu ID.
-- `buscarPorId(id)`: Retorna um produto específico pelo ID.
-
-## Dados: JsonProdutoRepository (issue #3)
-
-- **`data/JsonProdutoRepository.js`**: primeira implementação real do contrato
-  `ProdutoRepository` (#1), estendendo a classe da interface.
-- **Singleton**: `export default new JsonProdutoRepository()`.
-- **Persistência**: array de produtos serializado em `produtos.json`, na pasta de
-  documentos do app (`FileSystem.documentDirectory`); enquanto o arquivo não existe,
-  `listar()` devolve `[]`, e ele é criado na primeira gravação e relido a cada
-  operação. Os dados sobrevivem ao fechar e reabrir o app.
-- **FileSystem**: usa a mesma API do `CameraService` — `expo-file-system/legacy`
-  (`getInfoAsync`, `readAsStringAsync`, `writeAsStringAsync`), alinhada ao SDK 57.
-- **Id e data de cadastro**: `salvar()` gera `id` e `dataDeCadastro` (ISO) para
-  produtos que chegam sem eles — a tela de cadastro não gera nenhum dos dois (#10);
-  valores já informados são mantidos.
-- **`dataDeValidade`**: persiste exatamente como string ISO (`'YYYY-MM-DD'`), sem
-  conversão de data — decisão do contrato da #1.
-- **Erros de leitura/escrita (issue #19)**: nada é engolido em silêncio.
-  - **Gravação**: se `writeAsStringAsync` falhar, o erro é registrado no console
-    (`[JsonProdutoRepository] ...`) e **relançado**; `salvar`, `atualizar` e `remover`
-    propagam a exceção para a tela, que mostra um `Alert` de erro.
-  - **Leitura**: arquivo inexistente (primeira execução) continua devolvendo `[]`;
-    arquivo existente com erro de leitura ou JSON inválido faz `listar()` **lançar um
-    erro explícito** (em português), em vez de devolver `[]`.
-  - **Sem regravação de base vazia**: como `listar()` não devolve mais `[]` para uma base
-    ilegível, `salvar()` não sobrescreve os dados existentes. Backup fica fora da issue #19.
-  - `atualizar(produto)` lança `Produto <id> não encontrado` se o id não existir;
-    `remover(id)` com id inexistente continua sem erro (regrava a lista sem alteração).
-  - `salvar()` devolve o produto gravado (com o `id` gerado), para o alerta de notificação
-    levar o id real (`produtoId`); o contrato `ProdutoRepository` não mudou.
-- **Usado pelas telas** `TelaInicial`, `TelaCadastro` e `TelaDetalhe` (a de detalhe, desde a #19)
-  até a APP-07; desde então, é o cache local do `OfflineFirstProdutoRepository`.
-- **Etapa 2 (APP-04, #26)**: ganhou `substituirTodos(produtos)` (espelha a base do servidor;
-  usado só pelo `OfflineFirstProdutoRepository`, com a fila vazia) e `limpar()` (logout), e a
-  classe passou a ser exportada também com nome. Detalhes em `data/README.md`.
-
-## Justificativa da tecnologia de persistência (RT02)
-
-A persistência usa `expo-file-system` com um arquivo `produtos.json` e a pasta `fotos/`, em vez de
-`AsyncStorage` ou `SQLite`, pelos motivos abaixo:
-- O domínio tem uma única entidade simples; um array JSON atende ao volume esperado sem a
-  necessidade de consultas relacionais.
-- As fotos já precisavam ser gravadas em disco (`documentDirectory/fotos/`); usar a mesma API de
-  arquivos para os dados mantém uma única camada de I/O.
-- O `JsonProdutoRepository` implementa o contrato `ProdutoRepository`, então trocar a persistência
-  pela API remota (Etapa 2) não exige alterar as telas.
-
-Escolhemos o expo-file-system para guardar os dados em um arquivo produtos.json na pasta de documentos do aplicativo, e não o AsyncStorage ou o SQLite, pelos motivos a seguir.
-
-O domínio do app tem uma única entidade, o Produto, com poucos campos e sem relacionamentos. Um array serializado em JSON atende ao volume esperado de itens de uma despensa doméstica, e as operações de listagem, busca e ordenação são feitas em memória pelos serviços. Um banco relacional como o SQLite traria esquema, migrações e consultas que, nesse caso, não resolvem um problema real.
-
-As fotos dos produtos já precisavam ser gravadas em disco, na pasta fotos/, para não se perderem quando o sistema limpa o cache. Usar a mesma API de arquivos para os dados mantém uma única forma de acesso ao armazenamento do dispositivo.
-
-O acesso aos dados fica encapsulado no JsonProdutoRepository, que implementa a interface ProdutoRepository. As telas não conhecem o formato do arquivo. Por isso, na Etapa 2, a persistência local pode ser trocada pela API remota sem alterar as telas, apenas criando outra implementação da mesma interface.
-
-Os dados sobrevivem ao fechamento e à reabertura do aplicativo, o que foi validado no teste manual no Expo Go.
-
-## Regras de vencimento: ServicoValidade (issue #4)
-
-- **`services/ServicoValidade.js`**: regras de vencimento centralizadas na
-  camada de serviços — nenhuma tela calcula datas. Serviço puro: recebe o
-  `Produto` como parâmetro e não acessa repositório.
-- **`calcularDiasRestantes(dataDeValidade)`**: diferença em dias inteiros entre
-  a validade e hoje, considerando apenas a DATA (ignora hora) e sem deslocamento
-  de fuso — parse local via `isoParaData` (formatoData), nunca
-  `new Date('YYYY-MM-DD')` (UTC) nem `toISOString()`.
-- **`classificarSituacao(produto)`**: `vencido` (dias < 0), `venceEstaSemana`
-  (0 a 7 dias, inclusive hoje), `venceEsteMes` (8 a 30 dias) e `ok` (mais de
-  30 dias); as cores das situações (theme da #7) usam essas chaves.
-- **Tela de teste temporária** (`TelaTesteServicoValidade`): exibiu os
-  casos-limite (ontem, hoje, +7, +8 e +35 dias) com dias restantes e situação
-  calculados pelo serviço; removida na #10 junto com os mocks.
-- **Uso**: desde a #10 é a única fonte do cálculo de datas — usado pela
-  `TelaInicial`, pelo `ServicoDashboard`, pelo `NotificacoesService` e pela `TelaDetalhe`.
-
-## Agregações do dashboard: ServicoDashboard (issue #5)
-
-- **`services/ServicoDashboard.js`**: agregações do dashboard centralizadas
-  na camada de serviços — nenhuma tela agrega dados. Serviço puro: recebe
-  os produtos como parâmetro e não acessa repositório.
-- **`resumirProdutos(produtos)`**: retorna `{ total, vencidos,
-  venceEstaSemana, venceEsteMes, ok }`; a classificação de cada produto é
-  delegada ao `classificarSituacao` do ServicoValidade (nenhum cálculo de
-  data duplicado), então a soma dos quatro contadores é sempre igual ao
-  `total`. O contador de `vencido` se chama `vencidos` (com S), nome que o
-  `PainelDashboard` usa.
-- **`ordenarPorValidade(produtos)`**: nova lista ordenada pela validade mais
-  próxima (compara as strings `'YYYY-MM-DD'`, que em ordem alfabética já
-  ficam em ordem cronológica); não altera a lista original.
-- **Validação**: a tela de teste temporária da #4
-  (`TelaTesteServicoValidade`) foi estendida com uma seção "Dashboard" que
-  exibia os 5 contadores, a soma dos contadores ao lado do total e a lista
-  ordenada — removida na #10 junto com os mocks.
-- **Uso**: alimenta a ordenação da listagem e o `PainelDashboard` da
-  `TelaInicial` desde a #10.
-
-## Estrutura de pastas (implementada na issue #1)
-
-    app/           → telas (navegação via React Navigation: TelaInicial.js, TelaCadastro.js, TelaDetalhe.js e TelaLogin.js)
-    components/    → componentes reutilizáveis (ProdutoCard.js, EmptyState.js, PainelDashboard.js, IndicadorSincronizacao.js)
-    theme/         → tema visual central (theme.js) e tema claro/escuro (ThemeContext.js, TEMA-01)
-    utils/         → utilitários auxiliares (formatoData.js)
-    services/      → ServicoValidade (implementado na issue #4), ServicoDashboard (implementado na issue #5), NotificacoesService, CameraService
-    data/          → ProdutoRepository (interface) + JsonProdutoRepository (implementado na issue #3)
-    __tests__/     → testes unitários (issue #6), de integração (issue #14) e da issue #19 (CameraService, NotificacoesService, IntegracaoEdicao e TelaCadastroEdicao) com Jest
-    assets/        → ícones, splash screen e screenshots do README (assets/screenshots/)
-
-A pasta `mocks/` (dados e serviços temporários do bloco de interface) foi removida na issue #10.
-
-## Telas do aplicativo
-
-![Tela inicial com painel](assets/screenshots/01-listagem-dashboard.png)
-*Tela inicial: painel de situação e lista ordenada por validade.*
-
-![Busca e filtro](assets/screenshots/02-busca-filtro.png)
-*Busca por nome e filtro por situação.*
-
-![Cadastro](assets/screenshots/03-cadastro.png)
-*Formulário de cadastro com foto.*
-
-![Edição](assets/screenshots/04-edicao.png)
-*Edição de produto com campos pré-preenchidos.*
-
-![Detalhe](assets/screenshots/05-detalhe.png)
-*Tela de detalhe: foto, situação, dias restantes e data de cadastro.*
-
-![Confirmação de exclusão](assets/screenshots/06-confirmacao-exclusao.png)
-*Confirmação antes de remover um produto.*
-
-## Interface: tema e componentes (issue #7)
-
-- **Tema central** (`theme/theme.js`): paleta de cores, espaçamentos, raios, tamanhos de
-  fonte e estilos base (`estilosBase`). Telas e componentes importam daqui — nada de cores soltas.
-- **Cores das situações** (chaves iguais às do `ServicoValidade.classificarSituacao`, issue #4):
-  vermelho = `vencido`, amarelo = `venceEstaSemana`, azul = `venceEsteMes`, verde = `ok`.
-- **`ProdutoCard`**: recebe `produto` (contrato da #1) e `situacao` (já classificada) e exibe nome,
-  quantidade, validade (DD/MM/AAAA), foto quando houver e o selo colorido da situação.
-  **Não calcula datas** — só exibe o que recebe.
-- **`EmptyState`**: estado de lista vazia com ícone, mensagem e botão de ação opcional.
-- **Tela de teste temporária** (`TelaTesteComponentes`): usada na #7 para validar um cartão em
-  cada situação e o EmptyState; removida na #9, quando a listagem real passou a usar os componentes.
-
-## Interface: tela de cadastro (issue #8)
-
-- Formulário com **nome**, **quantidade** e **data de validade**, e botão "Salvar".
-- **Date picker:** `@react-native-community/datetimepicker` (incluído no Expo Go; instalado com
-  `npx expo install`). No Android usa a API imperativa `DateTimePickerAndroid.open`, recomendada
-  pela biblioteca. A data é gravada no formato do contrato (`'YYYY-MM-DD'`) a partir da data
-  **local** — sem `toISOString()`, que converte para UTC e pode adiantar um dia à noite.
-- **Validação** (mensagens em português): nome obrigatório, quantidade inteira maior que zero e
-  data obrigatória e não anterior a hoje (datas de hoje e futuras são aceitas).
-- Ao salvar, cria um `Produto` do contrato e grava no **`JsonProdutoRepository`** (#3), que gera
-  `id` e `dataDeCadastro`; agenda o alerta de vencimento (`NotificacoesService.agendarAlerta`,
-  #12), mostra "Produto salvo" e volta à tela inicial. Até a #10 o cadastro gravava num
-  repositório mock em memória.
-
-## Interface: tela de listagem (issue #9)
-
-- A tela inicial lista os produtos com o `ProdutoCard`, **ordenados pela validade mais próxima**,
-  e recarrega ao ganhar foco (o produto recém-cadastrado aparece ao voltar do cadastro).
-- **Busca local** por nome enquanto o usuário digita, sem diferenciar maiúsculas e acentos
-  ("lei" encontra "Leite"; "feijao" encontra "Feijão").
-- **Filtro por situação**: Todas / Vencidos / Vencem esta semana / Vencem este mês / Ok.
-- **EmptyState** quando não há produtos (com botão para cadastrar) e quando a busca ou o filtro
-  não encontram nada. Botão "+ Novo" no cabeçalho para abrir o cadastro.
-- A tela **não calcula datas**: a situação vem de `ServicoValidade.classificarSituacao` (#4) e a
-  ordenação de `ServicoDashboard.ordenarPorValidade` (#5). Os produtos vêm do
-  `JsonProdutoRepository` (#3); na primeira execução a lista está vazia e aparece o EmptyState.
-  Até a #10 a listagem usava produtos e serviços mock com as mesmas assinaturas.
-
-## Interface: dashboard, remoção e integração com os dados (issue #10)
-
-- **Painel no topo da tela inicial** (`components/PainelDashboard.js`): destaque em âmbar com a
-  quantidade de produtos que **vencem esta semana** e contadores de vencidos, deste mês e do total.
-  Tocar num contador aplica o filtro correspondente da listagem (o total volta para "Todas").
-- Os números vêm de `ServicoDashboard.resumirProdutos(produtos)` (#5):
-  `{ total, vencidos, venceEstaSemana, venceEsteMes, ok }`. A classificação é delegada ao
-  `ServicoValidade`, então a soma dos contadores é sempre igual ao total.
-- **Remoção de produto**: botão "Remover" em cada cartão, com confirmação; chama `remover(id)` do
-  `JsonProdutoRepository` e recarrega a lista e o painel.
-- **Sem mocks no fluxo principal**: `TelaInicial` e `TelaCadastro` usam o `JsonProdutoRepository`
-  (#3), o `ServicoValidade` (#4) e o `ServicoDashboard` (#5). A pasta `mocks/` e a tela de teste
-  temporária `TelaTesteServicoValidade` foram removidas.
-- **Cálculo de datas em um só lugar**: o `NotificacoesService` (#12) passou a usar o
-  `calcularDiasRestantes` do `ServicoValidade` em vez de uma cópia própria.
-- **Alerta ao cadastrar**: ao salvar, o cadastro chama `NotificacoesService.agendarAlerta(produto)`,
-  que agenda o aviso 3 dias antes do vencimento (ou dispara na hora, se faltar menos que isso).
-- **Falha na cópia da foto**: se `CameraService.persistirFoto` não conseguir copiar a foto, o
-  cadastro pergunta se o produto deve ser salvo sem foto, em vez de salvar sem ela em silêncio.
-
-## Interface: detalhe, edição e remoção completa (issue #19)
-
-- **Tela de detalhe (`app/TelaDetalhe.js`, rota `TelaDetalhe`)**: recebe só `route.params.produtoId`
-  e carrega o produto com `repositorio.buscarPorId` **sempre que ganha foco** (reflete edições).
-  Exibe foto ampliada (ou o placeholder `🥫`), nome, quantidade, data de validade e
-  `dataDeCadastro` formatadas (DD/MM/AAAA), situação (`classificarSituacao`) e dias restantes
-  (`calcularDiasRestantes`), ambos do `ServicoValidade`. Botões **Editar** e **Remover**. Se o
-  produto não existir (ou a base não puder ser lida), mostra a mensagem e um botão "Voltar".
-- **Cartão (`ProdutoCard`)**: além de `onRemover`, aceita `onPress` (tocar no corpo do cartão abre
-  a `TelaDetalhe`) e `onEditar` (botão "Editar", abre a `Cadastro` em modo edição).
-- **Edição (`TelaCadastro`)**: com `route.params.produto` a tela entra em modo edição (título
-  "Editar produto"; "Novo produto" na criação), pré-preenche os campos, mantém `id` e
-  `dataDeCadastro` originais e chama `repositorio.atualizar()` — nunca `salvar()`. Depois de
-  atualizar, cancela e reagenda o alerta e volta à tela anterior. As validações valem nos dois modos.
-  Se `atualizar()` ou `salvar()` falhar, mostra `Alert` "Erro ao salvar" com a mensagem do erro,
-  não mostra "Produto salvo", não navega e não altera a base. O botão "Remover foto" continua
-  disponível nos dois modos.
-- **Remoção completa** (`TelaInicial` e `TelaDetalhe`), nesta ordem: (1) `NotificacoesService.cancelarAlerta(id)`,
-  (2) `repositorio.remover(id)`, (3) `CameraService.removerFoto(fotoUri)` — só se o passo 2 teve sucesso —
-  e (4) recarregar a lista/painel. Se o passo 2 falhar, mostra `Alert` de erro e a foto não é apagada.
-- **Notificações**: o alerta agendado (e o imediato) leva `content.data.produtoId`; o `identifier`
-  não é guardado no produto nem no JSON. `cancelarAlerta(produtoId)` cancela só as notificações
-  daquele produto e não lança exceção (falhas vão para o console com `[NotificacoesService]`).
-  Alertas criados antes da #19 não têm `produtoId` e não são cancelados por essa função.
-- **Fotos**: `CameraService.removerFoto(uri)` só apaga arquivos dentro de
-  `documentDirectory/fotos/` (fotos da galeria nunca são apagadas) e não lança exceção. Na edição, a
-  foto antiga só é apagada depois de `atualizar()` ter sucesso; se `atualizar()` falhar, apaga-se a
-  cópia nova feita naquela tentativa e a original é mantida.
-- **Falha ao carregar a lista**: se `listar()` lançar erro, a `TelaInicial` mostra `Alert`
-  "Erro ao carregar" e um `EmptyState` de falha, sem regravar nada.
-- **Dashboard**: `ServicoDashboard` e `PainelDashboard` não mudaram; a tela inicial recarrega ao
-  ganhar foco (inclusive ao voltar do detalhe ou da edição).
-
-## Recursos do dispositivo: câmera e galeria (issue #11)
-
-- **`CameraService` (`services/CameraService.js`)**:
-  - Métodos estáticos `tirarFoto()` (abre a câmera) e `escolherDaGaleria()` (abre a galeria).
-  - Trata permissões nos três estados: concedida, negada (mensagem clara ao usuário) e negada permanentemente (direcionamento às configurações do sistema via `Linking.openSettings()`).
-  - Captura com qualidade comprimida (`quality: 0.6`, `allowsEditing: false`, `mediaTypes: ['images']`), sem guardar imagem original desnecessariamente pesada.
-  - Cancelamento gracioso: fechar câmera ou galeria retorna `null` sem quebrar o fluxo nem gerar erro.
-  - Retorna string com a URI local da imagem, atendendo ao campo `fotoUri` do contrato `Produto` (#1).
-- **Tela de teste temporária (`TelaTesteCamera.js`)**:
-  - Usada na #11 para validação isolada, com botões "Tirar foto" e "Escolher da galeria".
-  - Removida na #14, quando o fluxo real do cadastro passou a ser validado de ponta a ponta.
-
-## Recursos do dispositivo: notificações locais (issue #12)
-
-- **`NotificacoesService` (`services/NotificacoesService.js`)**:
-  - Serviço puro que recebe o `Produto` como parâmetro (sem acoplamento com repositório).
-  - Alertas locais configurados com `expo-notifications`, canal Android com prioridade alta e handler para exibição com app em primeiro plano.
-  - Regra de antecedência de 3 dias: produtos vencendo em até 3 dias (ou já vencidos) disparam notificação imediata (em 2s); produtos com folga maior são agendados para 3 dias antes da validade, às 09:00.
-  - Mensagens em português adaptadas ("venceu há X dias!", "vence hoje!", "vence amanhã!", "vence em X dias!").
-  - Trata permissões com aviso claro e link para as configurações do sistema (`Linking.openSettings()`).
-  - Funções auxiliares `listarAgendadas()` e `cancelarTodas()`.
-  - Dias restantes calculados pelo `ServicoValidade` (#4) desde a #10; o `agendarAlerta` é chamado pela `TelaCadastro` ao salvar cada produto.
-- **Tela de teste temporária (`TelaTesteNotificacoes.js`)**:
-  - Usada na #12 para agendar 3 cenários ("Vence amanhã", "Já vencido" e "Com folga") e listar/cancelar os agendamentos.
-  - Removida na #14, quando o alerta ao cadastrar passou a ser validado no fluxo real.
-
-## Recursos do dispositivo: integração da foto no fluxo do app (issue #13)
-
-- **Persistência de imagens (`CameraService.persistirFoto`)**:
-  - Salva as fotos temporárias da câmera e da galeria na pasta permanente de documentos do aplicativo (`FileSystem.documentDirectory/fotos/`), impedindo perda de dados quando o sistema operacional limpa o cache do aparelho.
-- **Tela de cadastro (`TelaCadastro.js`)**:
-  - Botão "Adicionar foto" integrado ao formulário, permitindo escolher entre capturar pela câmera ou escolher da galeria via `CameraService`.
-  - Exibição da pré-visualização da imagem com os botões "Trocar foto" e "Remover foto".
-  - Gravação do produto com a URI persistente no campo `fotoUri` ou `null` quando salvo sem foto; se a cópia da foto falhar, o usuário escolhe se salva sem foto (#10).
-- **Cartão do produto (`ProdutoCard.js`)**:
-  - Exibe a foto persistida do produto quando `fotoUri` estiver definido.
-  - Exibe placeholder estilizado com ícone `🥫` quando o produto for cadastrado sem foto ou em caso de falha no carregamento (`onError`).
-
-## Validação final da Etapa 1 (issue #14)
-
-- **Testes de integração** (`__tests__/IntegracaoEtapa1.test.js`): exercitam `JsonProdutoRepository`,
-  `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`
-  em conjunto, com o cenário de 5 produtos (1 vencido, 2 vencendo esta semana — um com foto e um sem —,
-  1 vencendo este mês e 1 ok). Conferem a persistência em `produtos.json`, a foto persistida, a ordenação
-  por validade, a classificação, os contadores do dashboard antes e depois de uma remoção e os alertas
-  (imediato para quem vence em até 3 dias, agendado para quem tem folga).
-- **Validação manual no Expo Go (SDK 57, Android)** — resultado: **sem erros**.
-  - Cadastro com foto pela câmera, salvamento e persistência em `produtos.json`.
-  - Listagem ordenada por validade, busca por nome e filtro por situação.
-  - Painel do dashboard com os contadores corretos para os 5 produtos e atualização ao remover.
-  - Notificação local ao cadastrar produto vencendo em menos de 3 dias.
-  - Foto e produtos continuam visíveis após fechar e reabrir o app.
-- **Limpeza**: as telas de teste temporárias (`TelaTesteCamera` e `TelaTesteNotificacoes`), suas rotas no
-  `App.js` e o botão "Testes" do cabeçalho foram removidos; o fluxo real cobre as duas validações.
-- **Testes unitários da #6** continuam passando após as integrações (`npx jest`).
-
-## Interface: tema claro e escuro (TEMA-01)
-
-Item opcional da P1. O botão 🌙/☀️ do cabeçalho alterna o tema na hora, sem reiniciar o app, e a
-escolha continua valendo depois de fechar e reabrir.
-
-- **`theme/theme.js`**: as exportações estáticas (`cores`, `situacoes`, `estilosBase`,
-  `espacamento`, `raio` e `fonte`) continuam iguais, com a paleta clara. Foram acrescentados a
-  paleta escura (`coresEscuras` e `situacoesEscuras`, com as mesmas chaves), `criarEstilosBase(paleta)`
-  e `temas` (`claro` e `escuro`). Na paleta escura, todos os pares de texto e fundo usados no app
-  têm contraste de pelo menos 4,5:1 (WCAG AA).
-- **`theme/ThemeContext.js`**: `ThemeProvider` (envolve o app no `App.js`) e o hook `useTema()`, que
-  devolve `{ nome, escuro, cores, situacoes, estilosBase, alternarTema, carregando }`. Fora do
-  `ThemeProvider`, `useTema()` lança um erro que explica o motivo.
-- **Persistência**: a preferência vai para `tema.json` (`{ "tema": "escuro" }`), na pasta de
-  documentos do app, via `expo-file-system/legacy` — o mesmo padrão de `produtos.json`. Arquivo
-  ausente ou inválido assume o tema claro; falha ao gravar não desfaz a troca. O `App.js` espera a
-  leitura antes de mostrar as telas, para não abrir no tema errado.
-- **Cabeçalho (`App.js`)**: as cores do cabeçalho, do fundo e do `NavigationContainer` seguem o
-  tema ativo. O botão fica no `headerRight` das telas; na `TelaInicial`, que define o próprio
-  `headerRight`, ele aparece ao lado do "+ Novo" (o `App.js` o passa pela prop `BotaoTema`).
-- **Componentes**: `ProdutoCard`, `PainelDashboard` e `EmptyState` obtêm cores, situações e estilos
-  base pelo `useTema()` e recriam os estilos (`useMemo`) quando a paleta muda; a sombra do cartão
-  também passou a vir do tema (`cores.sombra`). O banner `IndicadorSincronizacao` segue o mesmo padrão.
-- **Telas** (`TelaInicial`, `TelaCadastro`, `TelaDetalhe` e `TelaLogin`): seguem o tema ativo pelo
-  `useTemaOpcional()`, que fora do `ThemeProvider` devolve o tema claro em vez de lançar erro. Assim
-  os testes de tela, como o `TelaCadastroEdicao.test.js` (sem alteração), continuam renderizando
-  cada tela isoladamente. Os botões do cabeçalho usam `cores.textoCabecalho`, e o seletor de data
-  inline do iOS recebe `themeVariant`.
-- **Limitação conhecida**: os diálogos do sistema (`Alert` e o seletor de data) seguem o
-  `userInterfaceStyle: "light"` do `app.json` e continuam claros no tema escuro.
-
-## Fluxo de trabalho Git (regra do grupo)
-
-- Desenvolvimento exclusivamente na branch **`dev`**
-- Merge para **`main`** quando estável — `main` é a branch de publicação/entrega
-- **Toda outra branch é excluída** após ser mesclada (nada de branches permanentes extras)
-- Mensagens de commit no padrão **Conventional Commits** (`feat:`, `fix:`, `chore:`, `docs:`)
-- Commits finais feitos pelo grupo, após revisão das alterações
-
-## Divisão de responsabilidades — Etapa 1
-
-Cada integrante é responsável por 4 issues, desenvolvidas de forma independente
-contra o contrato de dados definido na issue #1 (modelo `Produto` e interface
-`ProdutoRepository`), usando mocks onde a integração só ocorre no fim do bloco.
-
-| Integrante | Bloco | Issues | Responsabilidades |
-|---|---|---|---|
-| Paulo Moura | Dados e regras | #3–#6 | `JsonProdutoRepository` (CRUD em JSON), `ServicoValidade` (regras de vencimento), `ServicoDashboard` (agregações), testes unitários |
-| Arthur Alexandre | Interface | #7–#10 | Tema visual e componentes reutilizáveis, tela de cadastro (formulário + date picker), tela de listagem (busca e filtro), dashboard "vencendo esta semana" e troca do mock pelo repositório real |
-| João Victor Lucena | Recursos do dispositivo | #11–#14 | `CameraService` (foto/galeria com permissões), `NotificacoesService` (alertas locais 3 dias antes do vencimento), integração da foto no fluxo do app, testes de integração e validação final |
-
-## Regra de manutenção deste README
-
-⚠️ Este README é **fonte de verdade viva**: a cada issue concluída, ele deve ser
-corrigido/adaptado para permanecer coerente com o contexto e o andamento do projeto.
-Manter o README atualizado integra os critérios de aceite de cada issue no GitHub.
-
-## Licença
-
-Distribuído sob a **Licença MIT** — ver o arquivo `LICENSE`.
-Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre e João Victor Lucena.
-
-## Como executar
-
-    npm install
-    npx expo start
-
-Escaneie o QR Code com o Expo Go (celular e PC na mesma rede Wi-Fi).
-
-Desde a APP-07 o app abre na tela de login, então precisa da API (seção abaixo) para o primeiro
-acesso. Crie um arquivo `.env` na raiz do app com a URL da API, usando o IP do PC na rede (no
-celular, `localhost` aponta para o próprio aparelho), e reinicie o `npx expo start`:
-
-    EXPO_PUBLIC_API_URL=http://192.168.0.10:3000
-
-Depois do primeiro login, a sessão fica salva no aparelho e o app abre direto na lista, mesmo sem
-internet; as alterações feitas offline sobem quando a conexão volta.
-
-## Executando o Backend
+**Grupo:** Paulo Moura Menezes, Arthur Alexandre Bento dos Santos e João Victor Lucena
+
+## 1. Tema e objetivo
+
+Aplicativo mobile desenvolvido em React Native com Expo para registro e controle de alimentos perecíveis, voltado a reduzir o desperdício causado por vencimento não percebido e falta de aviso antecipado.
+
+O sistema entregue oferece autenticação por e-mail e senha (login e criação de conta), cadastro e edição de produtos com foto pela câmera ou galeria, listagem ordenada pela data de validade mais próxima, busca local por nome sem diferenciação de acentos, filtros por situação (`vencido`, `venceEstaSemana`, `venceEsteMes` e `ok`), painel de contadores, tela de detalhes com dias restantes, remoção completa com limpeza de foto e alerta, notificações locais 3 dias antes do vencimento, sincronização offline-first com API remota, indicador de pendências na listagem e alternância entre tema claro e escuro.
+
+## 2. Tecnologias
+
+- **App mobile:** React Native (`0.86.3`), React (`19.2.3`) e Expo (`~57.0.31`)
+- **Navegação:** React Navigation (`@react-navigation/native` `^7.5.0` e `@react-navigation/native-stack` `^7.20.0`)
+- **Recursos do dispositivo e armazenamento local:** `expo-file-system` (`~57.0.7`, API `expo-file-system/legacy`), `expo-image-picker` (`~57.0.20`), `expo-notifications` (`~57.0.24`) e `@react-native-community/datetimepicker` (`9.1.0`)
+- **Backend:** Node.js com Express (`^4.21.2`), `pg` (`^8.13.1`), `cors` (`^2.8.5`) e `dotenv` (`^16.4.7`)
+- **Autenticação e segurança:** JWT com `jsonwebtoken` (`^9.0.2`, validade de 30 dias) e hash de senhas com `bcrypt` (`^5.1.1`, custo 12)
+- **Banco de dados e hospedagem:** PostgreSQL hospedado no Neon e API publicada no Render (plano Free)
+- **Testes:** Jest (`jest-expo` no app e `jest` + `supertest` no backend)
+
+## 3. Justificativa do React Navigation
+
+O requisito RF05 do PDF da disciplina cita o Expo Router. O projeto usa React Navigation porque o template base é o blank do Expo e o Expo Router foi descartado na fase de decisões (ver `## Histórico de decisões` abaixo).
+
+Em `App.js`, a navegação utiliza `NavigationContainer` e `createNativeStackNavigator`, alternando de forma mutuamente exclusiva entre a rota `Login` (quando não há sessão local) e a pilha principal (`Inicial`, `Cadastro` e `TelaDetalhe`), impedindo que o usuário retorne ao login pelo botão voltar após autenticar.
+
+## 4. Justificativa da persistência
+
+- **Persistência local:** os produtos (`produtos.json`), a sessão autenticada (`sessao.json`), a fila offline (`fila_sincronizacao.json`), a preferência de tema (`tema.json`) e as fotos (`fotos/`) ficam armazenados na pasta de documentos do aparelho via `expo-file-system/legacy`. A escolha se deve à simplicidade do domínio (listas pequenas lidas por completo), ao reaproveitamento da mesma camada de arquivos usada pelas fotos e à facilidade de gravação atômica na fila (escrita em arquivo temporário seguida de renomeação).
+- **Persistência remota (API):** o backend utiliza PostgreSQL hospedado no Neon em vez de SQLite porque o plano gratuito do Render não mantém arquivos entre reinícios, então um banco SQLite em arquivo local se perderia.
+
+## 5. Arquitetura offline-first
+
+As telas consomem `OfflineFirstProdutoRepository` (implementando o contrato `ProdutoRepository`), que coordena três fontes: cache local em JSON (`JsonProdutoRepository`), fila persistente FIFO em `fila_sincronizacao.json` (`FilaSincronizacao`, com `usuarioId` em cada item e gravação atômica) e API remota (`ApiProdutoRepository`).
+
+Escritas gravam primeiro no cache local, enfileiram a operação (`SALVAR`, `ATUALIZAR` ou `REMOVER`) com o `usuarioId` da sessão e disparam o envio em segundo plano sem bloquear a interface. A fila do usuário ativo é drenada ao abrir ou focar a `TelaInicial`, ao tocar no banner `IndicadorSincronizacao` ou ao puxar a lista para atualizar; com a fila vazia, o cache local espelha a base remota.
+
+Regras de sincronização implementadas em `data/OfflineFirstProdutoRepository.js`:
+
+- **Erro de rede, `408`, `429` ou `5xx`:** a sincronização é interrompida e o item (junto aos seguintes) permanece na fila para envio posterior.
+- **Resposta `401`:** a sincronização é interrompida mantendo a fila intacta; a sessão local é apagada e o aplicativo volta à tela de login para o usuário se autenticar novamente.
+- **Demais respostas `4xx` (exceto `401`, `408` e `429`):** o item rejeitado em definitivo pelo servidor é descartado da fila e a sincronização segue com os próximos itens.
+
+No logout (`Sair`), o app aguarda a rodada de sincronização em andamento (até o tempo-limite configurado), bloqueia a saída caso existam operações pendentes do usuário na fila e, sem pendências, limpa o cache local antes de encerrar a sessão.
+
+## 6. Execução do backend
+
+A API está na pasta `backend/` e exige a configuração das variáveis de ambiente `DATABASE_URL` (conexão PostgreSQL), `JWT_SECRET` (segredo para assinatura dos tokens, obrigatório na inicialização) e `PORT` (porta HTTP, padrão `3000`; definida automaticamente no Render). Nenhuma credencial ou valor real deve ser versionado.
+
+O passo a passo completo de execução local, testes (`npm test` em `backend/`), contrato das rotas e deploy em produção (Render + Neon) está documentado em [backend/README.md](backend/README.md).
+
+## 7. Execução do app
+
+Na raiz do repositório, instale as dependências e inicie o Expo:
 
 ```bash
-cd backend
 npm install
-cp .env.example .env   # preencha DATABASE_URL e JWT_SECRET
-npm start
+npx expo start
 ```
 
-O servidor sobe na porta definida em `PORT` (padrão 3000). O contrato completo da API está em [backend/README.md](backend/README.md).
+Crie um arquivo `.env` na raiz do projeto (ignorado pelo Git) definindo a variável `EXPO_PUBLIC_API_URL`, lida por `services/AuthService.js` e `data/ApiProdutoRepository.js`, apontando para a URL pública da API:
 
-## Deploy do backend (Render + Neon)
-
-O backend está publicado na branch `dev` em um Web Service do Render, com banco PostgreSQL no Neon.
-
-- **URL pública:** https://controle-validade-alimentos.onrender.com
-- **Branch:** `dev` (deploy automático a cada commit nessa branch)
-- **Root Directory:** `backend`
-- **Build Command:** `npm install`
-- **Start Command:** `npm start`
-- **Plano:** Free ($0/mês)
-- **Health Check Path:** vazio (o backend não expõe uma rota de verificação de saúde)
-
-### Variáveis de ambiente no Render
-
-| Variável | Descrição |
-| -------------- | --------------------------------------------------------------------------- |
-| `DATABASE_URL` | String de conexão do Neon, com `?sslmode=require` no final |
-| `JWT_SECRET` | Segredo usado para assinar os tokens (gerado com 32 bytes aleatórios) |
-
-A variável `PORT` não é cadastrada manualmente: o Render a define automaticamente.
-
-As variáveis sensíveis ficam somente no painel do Render. Não as registre no repositório, em issues ou em prints.
-
-### Apontando o app para a API pública
-
-Na versão entregue, o `EXPO_PUBLIC_API_URL` do app deve apontar para a URL pública, e não para `localhost` ou para o IP da rede local:
-
-```
+```env
 EXPO_PUBLIC_API_URL=https://controle-validade-alimentos.onrender.com
 ```
 
-### Limitação do plano Free
+Após criar ou alterar o `.env`, reinicie o bundler (`npx expo start -c`) e escaneie o QR Code no Expo Go. No plano Free do Render, a primeira requisição após cerca de 15 minutos de inatividade pode levar até 1 minuto para responder.
 
-No plano Free, o serviço entra em modo de suspensão após cerca de 15 minutos sem requisições. A primeira requisição depois desse período pode demorar até 1 minuto para responder. Esse comportamento é esperado e não indica falha.
+## 8. Links
 
-### Verificação rápida
+- **URL pública da API:** https://controle-validade-alimentos.onrender.com
+- **Documentação breve:** [docs/DOCUMENTACAO.md](docs/DOCUMENTACAO.md)
+- **Vídeo da P1:** https://drive.google.com/file/d/1EpZPceIjttQwXEYTn5IdY0RofN3wXjvb/view?usp=sharing
+- **Vídeo da P2 (DOC-03):** https://drive.google.com/file/d/1b8zfiB76JpjXzGSwDWGR3rU36Sg41652/view?usp=sharing
 
-```bash
-curl https://controle-validade-alimentos.onrender.com/
-```
+## 9. Capturas de tela
 
-Resposta esperada: `{"mensagem":"Rota não encontrada."}`. Ela confirma que o servidor está no ar, pois a raiz não é uma rota da API.
+![Tela de login](assets/screenshots/login.png)
 
-## Testes
+![Tela de listagem](assets/screenshots/listagem.png)
 
-Testes unitários e de integração executados com **Jest** utilizando o preset **`jest-expo`**.
+![Tela de cadastro](assets/screenshots/cadastro.png)
 
-    npm test
-    # ou
-    npx jest
+![Tela de detalhes](assets/screenshots/detalhe.png)
 
-- **`ServicoValidade` (`__tests__/ServicoValidade.test.js`)**: testes das funções `calcularDiasRestantes` (passado, hoje e futuro) e `classificarSituacao` cobrindo todos os casos-limite da issue #4 (`vencido`, `venceEstaSemana`, `venceEsteMes` e `ok`).
-- **`JsonProdutoRepository` (`__tests__/JsonProdutoRepository.test.js`)**: testes de persistência cobrindo o fluxo completo de CRUD (salvar com id gerado, buscarPorId, atualizar e remover), a geração de `id` e `dataDeCadastro` quando o produto chega sem eles e o caso de arquivo inexistente (retorna lista vazia sem erro), com mock em memória de `expo-file-system/legacy`. Na issue #19 foram acrescentados: `atualizar()` (substitui pelo id, mantém o total e preserva `dataDeCadastro`; id inexistente lança erro), `listar()` com JSON inválido ou falha de leitura (lança erro, não devolve `[]`), falha de escrita propagada para `salvar`/`atualizar`/`remover` e `salvar()` que não sobrescreve a base quando `listar()` falha. Na APP-04 (#26) foram acrescentados: `substituirTodos` (lista preenchida convertida em `Produto`, lista vazia e valor que não é lista), `limpar` (com e sem arquivo, e falha de gravação) e a exportação nomeada da classe.
-- **`IntegracaoEtapa1` (`__tests__/IntegracaoEtapa1.test.js`)**: testes de integração da Etapa 1 (issue #14) verificando as peças funcionando em conjunto (`JsonProdutoRepository`, `ServicoValidade`, `ServicoDashboard`, `CameraService.persistirFoto` e `NotificacoesService.agendarAlerta`) no cenário completo de 5 produtos.
-- **`NotificacoesService` (`__tests__/NotificacoesService.test.js`, issue #19)**: `cancelarAlerta` cancela só as notificações do `produtoId` (sem lançar exceção quando não há nenhuma ou quando o cancelamento falha) e `agendarAlerta` inclui `produtoId` em `content.data`, tanto no alerta imediato quanto no agendado.
-- **`CameraService.removerFoto` (`__tests__/CameraService.test.js`, issue #19)**: apaga dentro de `documentDirectory/fotos/`, não apaga fora dessa pasta, ignora uri vazia e não lança exceção se o arquivo não existir ou a exclusão falhar.
-- **`IntegracaoEdicao` (`__tests__/IntegracaoEdicao.test.js`, issue #19)**: edita um produto da base de 5 itens e confere a listagem, a ordenação, a situação calculada, os contadores do dashboard e o reagendamento do alerta.
-- **`TelaCadastroEdicao` (`__tests__/TelaCadastroEdicao.test.js`, issue #19)**: renderiza a `TelaCadastro` (com `react-test-renderer`, já instalado pelo `jest-expo`) nos modos criação e edição — pré-preenchimento, `atualizar()` com `id` e `dataDeCadastro` preservados, troca e remoção de foto com apagamento da antiga, falha de gravação sem "Produto salvo" e sem alterar a base, e descarte da foto nova quando `atualizar()` falha.
-- **`OfflineFirstProdutoRepository` (`__tests__/OfflineFirstProdutoRepository.test.js`, APP-05)**: com cache local, fila e API fakes em memória — escritas e leituras sem conexão sem lançar erro, um item na fila por escrita (com `usuarioId`), escrita que não espera a API, envio na ordem de criação com o mapeamento de cada tipo, retomada sem reenvio após falha no meio, `5xx` e `401` interrompendo e mantendo a fila, `4xx` descartando só o item, itens de outros usuários intocados, `substituirTodos` só com a fila vazia, chamadas simultâneas sem envio duplicado, trava liberada após erro e escrita feita durante o download preservada no cache.
-- **`TelaLogin` (`__tests__/TelaLogin.test.js`, APP-06)**: renderiza a `TelaLogin` com o `AuthService` simulado — alternância entre "Entrar" e "Criar conta" (campo de nome e texto do botão), validações (campos vazios, nome no cadastro, e-mail sem `@`/domínio e senha curta, sem chamar o serviço), envio com sucesso (`aoAutenticar` uma vez, com o usuário), erro da API e falta de conexão em `Alert` (senha limpa) e estado de carregamento (`ActivityIndicator`, botão desabilitado e toque duplo sem envio duplicado).
-- **`AppSessao` (`__tests__/AppSessao.test.js`, APP-07)**: renderiza o `App.js` com o `NavigationContainer` e o native stack reais (telas simuladas) — sem sessão abre na `TelaLogin`; com sessão abre direto na lista; após o login a rota `Login` deixa de existir (o "voltar" não retorna a ela); "Sair" e sessão expirada voltam ao login, a segunda com o aviso.
-- **`TelaInicialSessao` (`__tests__/TelaInicialSessao.test.js`, APP-07)**: renderiza a `TelaInicial` com o repositório e o `AuthService` simulados — sincroniza uma única vez por foco (sem loop do `useFocusEffect`), "Sair" bloqueado com pendências na fila, "Sair" sem pendências na ordem limpar cache → logout → voltar ao login, falha ao limpar o cache sem deslogar, sessão expirada (`401`) apagando a sessão e falha de sincronização sem impedir a lista local. O teste do `OfflineFirstProdutoRepository` ganhou os casos de `quantidadePendente` e `limparCacheLocal`.
-- **`IndicadorSincronizacao` (`__tests__/IndicadorSincronizacao.test.js`, APP-08)**: o componente isolado (oculto sem pendências, singular e plural, "Sincronizando..." desabilitado, toque chamando `aoSincronizar` uma vez e nenhuma importação da fila ou de repositório) e a integração na `TelaInicial` (banner que some quando a fila esvazia, toque repetido sem sincronização duplicada, puxar a lista com o indicador até terminar — inclusive com uma sincronização já em andamento —, erro e `401` sem deixar "Sincronizando..." preso e lista vazia com banner e puxar para atualizar).
-- **`TemaClaroEscuro` (`__tests__/TemaClaroEscuro.test.js`, TEMA-01)**: exportações estáticas de `theme/theme.js` preservadas com a paleta clara, paleta escura com as mesmas chaves, tema claro por padrão (sem `tema.json`), troca para o escuro e de volta sem reiniciar, preferência gravada em `tema.json` e mantida ao reabrir, `tema.json` inválido ou com valor desconhecido assumindo o claro, falha de gravação sem desfazer a troca, alternância antes do fim da leitura respeitada, erro de `useTema()` fora do `ThemeProvider`, os componentes `ProdutoCard`, `PainelDashboard` e `EmptyState` trocando de cores com o tema (e sem cor fixa no código) o botão do cabeçalho do `App.js` alternando o tema, as quatro telas usando `useTemaOpcional()` sem cor fixa, `useTemaOpcional()` fora do provider devolvendo o tema claro e a `TelaLogin` trocando fundo e texto com o tema. Os testes da `TelaInicial` (`TelaInicialSessao` e `IndicadorSincronizacao`) passaram a renderizá-la dentro do `ThemeProvider`, como no app.
+![Indicador de sincronização](assets/screenshots/sincronizacao.png)
+
+![Tela com tema claro](assets/screenshots/tema.png)
+
+## 10. Divisão de responsabilidades
+
+- **Etapa 1:** aplicativo mobile com persistência local em JSON, regras de validade, dashboard, captura e persistência de fotos, notificações locais e testes automatizados.
+- **Etapa 2:** edição e tela de detalhes, bloqueio de data vencida no cadastro, backend Express + PostgreSQL com autenticação JWT e CRUD isolado por usuário, sincronização offline-first, indicador de status, tema claro/escuro, deploy no Render/Neon e documentação final.
+
+| Integrante | Etapa 1 | Etapa 2 |
+| :--- | :--- | :--- |
+| Paulo Moura Menezes | Issues #1 a #6 (dados e regras) | Issues #19 e #32 a #37 |
+| Arthur Alexandre Bento dos Santos | Issues #7 a #10 (interface) | Issues #26 a #31 |
+| João Victor Lucena | Issues #11 a #14 (recursos do dispositivo) | Issues #20 a #25 |
 
 ## Histórico de decisões
 
-- 2026-10-01 — Repositório inicializado; scaffold do Expo (template blank) mesclado ao `main`;
-  `.gitignore` unificado; fluxo de branches `dev` → `main` definido.
-- 2026-10-01 — Licença do template do Expo substituída por MIT própria do grupo; README
-  consolidado com navegação via React Navigation.
-- 2026-10-02 — Plano da Etapa 1 concluído: 14 issues criadas no GitHub (2 de
-  fundação + 4 por integrante, blocos independentes contra o contrato da #1);
-  `NotificacoesService` movida para o bloco do João; labels `setup`, `feat` e `docs` configuradas.
-- 2026-10-02 — Issue #1 concluída: estrutura de pastas (app, components, services, data) criada; contrato de dados definido (Produto + ProdutoRepository), base para os blocos independentes da Etapa 1.
-- 2026-10-02 — Issue #2 concluída: React Navigation configurado (NavigationContainer + native stack); telas TelaInicial e TelaCadastro criadas em app/; navegação Inicial → Cadastro → Voltar funcional.
-- 2026-10-13 — Issue #7 concluída: tema visual central (`theme/theme.js`) e componentes
-  reutilizáveis `ProdutoCard` e `EmptyState`, validados na tela de teste temporária com produtos mock
-  nas 4 situações; cabeçalho da navegação usando as cores do tema.
-- 2026-10-13 — Issue #8 concluída: tela de cadastro com formulário validado e date picker
-  (`@react-native-community/datetimepicker`), salvando em repositório mock em memória
-  (`mocks/`), que segue o contrato da #1.
-- 2026-10-13 — Issue #9 concluída: tela inicial transformada na listagem com `ProdutoCard`,
-  ordenação por validade, busca local por nome, filtro por situação e EmptyState; situação e
-  ordenação vindas de serviços mock com as assinaturas das issues #4 e #5; tela de teste da #7
-  removida.
-- 2026-10-14 — Issue #11 concluída: `CameraService` criado com `tirarFoto()` e `escolherDaGaleria()`, compressão de imagens, tratamento de permissões e cancelamento gracioso; validado na tela de teste `TelaTesteCamera`.
-- 2026-10-14 — Issue #12 concluída: `NotificacoesService` criado com `agendarAlerta()`, regra de antecedência de 3 dias, mensagens em português e listagem de agendamentos; validado na tela de teste `TelaTesteNotificacoes`.
-- 2026-10-14 — Issue #13 concluída: integração da captura de foto (câmera/galeria) no cadastro, persistência no FileSystem e exibição da foto ou placeholder no ProdutoCard.
-- 2026-10-14 — Issue #10, parte visual: painel do dashboard "vencendo esta semana" e remoção de
-  produto na tela inicial, ainda via mock; a troca pelo repositório e pelos serviços reais aguarda
-  as issues #3 e #5. Alerta de foto do cadastro ajustado ao limite de 3 botões do Android.
-- 2026-10-23 — Issue #3 concluída: `JsonProdutoRepository` (CRUD real em JSON via
-  `expo-file-system/legacy`, arquivo `produtos.json` no documentDirectory, id
-  gerado pelo repositório quando ausente, erros de leitura/escrita tratados no
-  console). Telas seguem no mock até a #10.
-- 2026-10-23 — Issue #4 concluída: `ServicoValidade` com
-  `calcularDiasRestantes` e `classificarSituacao` (faixas vencido / esta
-  semana / este mês / ok, iguais ao mock), cálculo só-data sem fuso e tela de
-  teste temporária com os casos-limite. Telas seguem no mock até a #10.
-- 2026-10-24 — Issue #5 concluída: `ServicoDashboard` com `resumirProdutos`
-  (5 contadores, classificação delegada ao ServicoValidade, soma sempre
-  igual ao total) e `ordenarPorValidade` (lista nova, sem mutar a original),
-  semântica idêntica ao mock. Tela de teste temporária estendida com a
-  seção "Dashboard". Telas seguem no mock até a #10.
-- 2026-10-24 — Issue #6 concluída: configuração do Jest/jest-expo e testes unitários do bloco de dados (issue #6).
-- 2026-10-24 — Issue #10 concluída: telas integradas ao `JsonProdutoRepository`, ao
-  `ServicoValidade` e ao `ServicoDashboard`; `id` e `dataDeCadastro` gerados pelo repositório;
-  alerta de vencimento agendado ao salvar; aviso quando a cópia da foto falha;
-  `NotificacoesService` usando o cálculo de datas do `ServicoValidade`; pasta `mocks/` e
-  `TelaTesteServicoValidade` removidas.
-- 2026-10-24 — Issue #14 concluída (fim da Etapa 1): testes de integração com o cenário de 5
-  produtos (`__tests__/IntegracaoEtapa1.test.js`), validação manual de ponta a ponta no Expo Go
-  (SDK 57) sem erros e remoção das telas de teste temporárias `TelaTesteCamera` e
-  `TelaTesteNotificacoes`, de suas rotas e do botão "Testes" do cabeçalho.
-- 2026-11-16 — Issue #19 concluída: edição, tela de detalhe, robustez da persistência e limpeza de
-  notificações e fotos. Validada no Expo Go (fluxos de edição, detalhe, remoção e persistência).
-  Entregue em `dev` (commit `9bf785f`) e integrada à `main` (merge `1aa57c3`).
-- 2026-11-20 — APP-04 (#26) concluída: `JsonProdutoRepository` ganhou `substituirTodos` e `limpar`
-  (usados pelo repositório offline-first) e a exportação nomeada da classe.
-- 2026-11-20 — APP-05 (#27) concluída: `OfflineFirstProdutoRepository` coordena cache local, fila
-  offline e API — escritas locais primeiro e envio em segundo plano, fila FIFO por usuário, `401`
-  sinalizado para a tela e cache substituído só com a fila vazia.
-- 2026-11-20 — APP-06 (#28) concluída: `TelaLogin` com os modos "Entrar" e "Criar conta", validação
-  no formulário, carregamento no botão e erros em `Alert`; avisa o `App.js` por `aoAutenticar`.
-- 2026-11-20 — APP-07 (#29) concluída: `App.js` escolhe a stack pela sessão local (login ou lista,
-  mesmo offline); as três telas usam o `OfflineFirstProdutoRepository`; botão "Sair" bloqueado com
-  pendências na fila; `401` na sincronização volta ao login com o aviso de sessão expirada.
-- 2026-11-20 — APP-08 (#30) concluída: banner `IndicadorSincronizacao` na `TelaInicial` ("Modo
-  offline: X alteração(ões) aguardando conexão" / "Sincronizando...", toque para sincronizar) e
-  "puxar para atualizar" na lista; sem sincronização periódica em segundo plano (`setInterval`).
-- 2026-11-20 — TEMA-01 (#31) concluída: tema claro e escuro com `ThemeProvider`/`useTema()`, botão
-  de alternância no cabeçalho, preferência em `tema.json` e os componentes `ProdutoCard`,
-  `PainelDashboard` e `EmptyState` seguindo o tema ativo; as telas e o banner de sincronização
-  também seguem o tema (`useTemaOpcional()` nas telas).
-- 2026-11-22 — Issue #34 (deploy): backend publicado no Render (branch `dev`, root `backend`, plano Free) com banco PostgreSQL no Neon. Variáveis `DATABASE_URL` e `JWT_SECRET` configuradas no painel do Render. Validados em produção: `GET /` (servidor no ar), `POST /auth/registro` (201), `POST /auth/login` (200 e 401). Validado: criação de produto pela URL pública e registro no Neon.
+- 2026-10-01 — Repositório inicializado com template blank do Expo, licença MIT e fluxo Git `dev` para `main`; navegação definida com React Navigation (native stack), descartando o Expo Router.
+- 2026-10-02 — Issues #1 e #2 concluídas: estrutura de pastas, modelo `Produto`, interface `ProdutoRepository` e navegação nativa inicial.
+- 2026-10-13 a 2026-10-24 — Issues #3 a #14 concluídas (Etapa 1): `JsonProdutoRepository`, `ServicoValidade`, `ServicoDashboard`, tema visual, cadastro com date picker e foto (`CameraService`), listagem com busca/filtros/dashboard, alertas locais 3 dias antes do vencimento (`NotificacoesService`) e testes unitários e de integração com Jest.
+- 2026-11-16 — Issue #19 concluída: edição de produtos, `TelaDetalhe`, tratamento explícito de erros de persistência e limpeza completa de fotos e notificações.
+- 2026-11-20 — Issues #20 a #31 concluídas: reorganização de `theme/` e `utils/`, bloqueio de data vencida no formulário de cadastro, criação inicial do backend Express + PostgreSQL, `ApiProdutoRepository`, `AuthService`, `FilaSincronizacao`, `OfflineFirstProdutoRepository`, `TelaLogin`, integração de sessão/logout, `IndicadorSincronizacao` e tema claro/escuro (`ThemeContext`).
+- 2026-11-22 — Issues #32 a #35 concluídas: extração de autenticação JWT (30 dias, bcrypt custo 12) e CRUD de produtos isolado por usuário no backend com testes em Jest + supertest, publicação da API no Render com banco PostgreSQL no Neon (validando registro, login e persistência de produto no Neon) e criação da documentação breve em `docs/DOCUMENTACAO.md`.
+
+## Licença
+
+Distribuído sob a Licença MIT — ver [LICENSE](LICENSE).
+Copyright (c) 2026 Paulo Moura Menezes, Arthur Alexandre Bento dos Santos e João Victor Lucena.
