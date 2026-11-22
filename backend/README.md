@@ -96,7 +96,7 @@ cd backend
 npm test
 ```
 
-Os testes (Jest + supertest, em `test/auth.test.js`) não usam banco real: a conexão `pg` é substituída por um armazenamento em memória e o `JWT_SECRET` é definido pelo próprio teste. O bcrypt é o real, com custo 12.
+Os testes (Jest + supertest, em `test/auth.test.js` e `test/produtos.test.js`) não usam banco real: a conexão `pg` é substituída por um armazenamento em memória e o `JWT_SECRET` é definido pelo próprio teste. O bcrypt é o real, com custo 12.
 
 ## Produtos — detalhes
 
@@ -112,15 +112,32 @@ Objeto produto:
   "dataDeCadastro": "2026-11-19T17:00:00.000Z"
 }
 ```
-- `dataDeValidade` é sempre texto `YYYY-MM-DD`. O backend **não** valida se a data é passada (regra exclusiva do app).
-- `fotoUri` pode ser `null`.
+- `dataDeValidade` é sempre texto `YYYY-MM-DD` representando uma data real do calendário. Datas passadas, presentes e futuras são aceitas (o backend **não** valida se a data é passada; regra exclusiva do app).
+- `fotoUri` pode ser `null` (ausente, `null` ou `""` são gravados como `null`).
+- `nome` é obrigatório (texto não vazio após `trim`, máximo 255 caracteres).
+- `quantidade` deve ser um número inteiro maior que zero e menor ou igual a `2147483647` (strings, booleanos, decimais, zero e negativos retornam `400`).
+- `id` (opcional no `POST`, gerado via UUID quando ausente, `null` ou vazio): se informado, deve ser texto de até 255 caracteres após `trim`.
+- `dataDeCadastro` (opcional no `POST`, gerada em ISO 8601 quando ausente, `null` ou vazia): se informada, deve estar em formato ISO 8601 válido com data e hora (normalizada em UTC antes de gravar).
+
+Mensagens de validação (`400`):
+
+| Campo | Mensagem |
+| --- | --- |
+| `id` (tipo inválido) | `O id do produto deve ser um texto.` |
+| `id` (> 255 caracteres) | `O id do produto deve ter no máximo 255 caracteres.` |
+| `nome` (ausente ou vazio) | `O nome do produto é obrigatório.` |
+| `nome` (> 255 caracteres) | `O nome do produto deve ter no máximo 255 caracteres.` |
+| `quantidade` | `A quantidade deve ser um número inteiro maior que zero.` |
+| `dataDeValidade` | `A data de validade deve estar no formato YYYY-MM-DD e ser uma data válida.` |
+| `dataDeCadastro` | `A data de cadastro deve estar em formato ISO 8601 válido.` |
+| `fotoUri` | `A foto deve ser um texto ou nula.` |
 
 ### GET /produtos
-`200` com array de produtos do usuário, ordenados por `dataDeValidade`.
+`200` com array de produtos do usuário, ordenados por `dataDeValidade` ascendente.
 
 ### GET /produtos/:id
 - `200`: produto.
-- `404`: não existe ou pertence a outro usuário.
+- `404`: `{ "mensagem": "Produto não encontrado." }` quando não existe ou pertence a outro usuário.
 
 ### POST /produtos
 
@@ -136,19 +153,21 @@ Requisição (`id`, `fotoUri` e `dataDeCadastro` opcionais; se `id` ou `dataDeCa
 }
 ```
 - `201`: produto criado.
-- `200`: `id` já existe para o mesmo usuário; retorna o registro existente, sem alterá-lo.
-- `400`: faltam `nome`, `quantidade` (inteiro) ou `dataDeValidade`.
-- `409`: `id` já pertence a outro usuário.
+- `200`: `id` já existe para o mesmo usuário; retorna o registro existente, sem comparar nem alterar campos.
+- `400`: dados obrigatórios ausentes ou fora das regras de validação acima.
+- `409`: `{ "mensagem": "Id de produto já em uso." }` quando o `id` já pertence a outro usuário.
+
+> **Limitação conhecida de concorrência:** a chave primária da tabela `produtos` é composta por `(id, "usuarioId")`. A unicidade global do `id` é garantida por uma consulta prévia no `POST`, e não por uma restrição única global no banco. Em teoria, duas requisições simultâneas de usuários diferentes com o mesmo `id` podem ambas passar pela verificação antes da inserção. Essa limitação é aceita pelo time no escopo atual.
 
 ### PUT /produtos/:id
 
-Atualiza apenas `nome`, `quantidade`, `dataDeValidade` e `fotoUri`; `id`, `usuarioId` e `dataDeCadastro` são mantidos.
+Atualiza apenas `nome`, `quantidade`, `dataDeValidade` e `fotoUri`; `id`, `usuarioId` e `dataDeCadastro` são mantidos (qualquer valor enviado para eles no body é ignorado).
 ```json
 { "nome": "Leite integral", "quantidade": 3, "dataDeValidade": "2027-01-15", "fotoUri": null }
 ```
 - `200`: produto atualizado.
-- `400`: dados obrigatórios ausentes ou inválidos.
-- `404`: não existe ou pertence a outro usuário.
+- `400`: dados obrigatórios ausentes ou fora das regras de validação acima.
+- `404`: `{ "mensagem": "Produto não encontrado." }` quando não existe ou pertence a outro usuário.
 
 ### DELETE /produtos/:id
 `204` sem corpo, sempre — mesmo se o produto não existir ou for de outro usuário.
