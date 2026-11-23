@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,13 @@ import {
 } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import Produto from '../data/Produto';
-import repositorio from '../data/JsonProdutoRepository';
+import repositorio from '../data/OfflineFirstProdutoRepository';
 import CameraService from '../services/CameraService';
 import NotificacoesService from '../services/NotificacoesService';
-import { cores, espacamento, raio, fonte, estilosBase } from '../components/theme';
-import { formatarDataBR, dataParaIso, isoParaData } from '../components/formatoData';
+import { espacamento, raio, fonte } from '../theme/theme';
+import { useTemaOpcional } from '../theme/ThemeContext';
+import { calcularDiasRestantes } from '../services/ServicoValidade';
+import { formatarDataBR, dataParaIso, isoParaData } from '../utils/formatoData';
 
 function validar({ nome, quantidade, dataDeValidade }) {
   const erros = {};
@@ -32,8 +34,16 @@ function validar({ nome, quantidade, dataDeValidade }) {
   }
   if (!dataDeValidade) {
     erros.dataDeValidade = 'Selecione a data de validade.';
+  } else if (calcularDiasRestantes(dataDeValidade) < 0) {
+    erros.dataDeValidade = 'A data de validade não pode ser anterior à data de hoje.';
   }
   return erros;
+}
+
+/** Hoje às 00:00 no fuso local, para o minimumDate do seletor. */
+function inicioDeHoje() {
+  const agora = new Date();
+  return new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
 }
 
 /**
@@ -56,6 +66,9 @@ function confirmarSalvarSemFoto() {
 }
 
 export default function TelaCadastro({ navigation, route }) {
+  // Tema ativo (TEMA-01); fora do ThemeProvider, o claro (ex.: testes de tela).
+  const { cores, estilosBase, escuro } = useTemaOpcional();
+  const styles = useMemo(() => criarEstilos(cores), [cores]);
   // Modo edição quando chega um produto em route.params; senão, modo criação.
   const produtoEdicao = route?.params?.produto ?? null;
   const modoEdicao = Boolean(produtoEdicao?.id);
@@ -99,6 +112,7 @@ export default function TelaCadastro({ navigation, route }) {
       DateTimePickerAndroid.open({
         value: valorInicial,
         mode: 'date',
+        minimumDate: inicioDeHoje(),
         onValueChange: (_evento, data) => selecionarData(data),
       });
     } else {
@@ -309,7 +323,9 @@ export default function TelaCadastro({ navigation, route }) {
               <DateTimePicker
                 value={dataDeValidade ? isoParaData(dataDeValidade) : new Date()}
                 mode="date"
+                minimumDate={inicioDeHoje()}
                 display="inline"
+                themeVariant={escuro ? 'dark' : 'light'}
                 onValueChange={(_evento, data) => selecionarData(data)}
               />
               <TouchableOpacity onPress={() => setMostrarSeletorIOS(false)}>
@@ -367,88 +383,90 @@ export default function TelaCadastro({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  conteudo: {
-    padding: espacamento.md,
-  },
-  grupo: {
-    marginBottom: espacamento.md,
-  },
-  campoComErro: {
-    borderColor: cores.erro,
-  },
-  campoData: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  textoData: {
-    fontSize: fonte.normal,
-    color: cores.texto,
-  },
-  textoPlaceholder: {
-    fontSize: fonte.normal,
-    color: cores.textoSecundario,
-  },
-  campoFoto: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderStyle: 'dashed',
-    paddingVertical: espacamento.md,
-  },
-  textoPlaceholderFoto: {
-    color: cores.primaria,
-    fontWeight: '600',
-    fontSize: fonte.normal,
-  },
-  containerPreviewFoto: {
-    alignItems: 'center',
-    backgroundColor: cores.superficie,
-    borderRadius: raio.md,
-    borderColor: cores.borda,
-    borderWidth: 1,
-    padding: espacamento.sm,
-  },
-  previewFoto: {
-    width: '100%',
-    height: 180,
-    borderRadius: raio.sm,
-    backgroundColor: cores.fundo,
-  },
-  acoesFoto: {
-    flexDirection: 'row',
-    gap: espacamento.md,
-  },
-  botaoAlterarFoto: {
-    marginTop: espacamento.sm,
-    paddingVertical: espacamento.xs + 2,
-    paddingHorizontal: espacamento.md,
-  },
-  textoBotaoAlterarFoto: {
-    color: cores.primaria,
-    fontWeight: '600',
-    fontSize: fonte.pequena,
-  },
-  textoRemoverFoto: {
-    color: cores.erro,
-  },
-  seletorIOS: {
-    marginTop: espacamento.sm,
-    backgroundColor: cores.superficie,
-    borderRadius: raio.md,
-    padding: espacamento.sm,
-  },
-  confirmarData: {
-    color: cores.primaria,
-    fontSize: fonte.normal,
-    fontWeight: 'bold',
-    textAlign: 'right',
-    padding: espacamento.sm,
-  },
-  botaoSalvar: {
-    marginTop: espacamento.sm,
-  },
-  botaoDesabilitado: {
-    opacity: 0.6,
-  },
-});
+function criarEstilos(cores) {
+  return StyleSheet.create({
+    conteudo: {
+      padding: espacamento.md,
+    },
+    grupo: {
+      marginBottom: espacamento.md,
+    },
+    campoComErro: {
+      borderColor: cores.erro,
+    },
+    campoData: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    textoData: {
+      fontSize: fonte.normal,
+      color: cores.texto,
+    },
+    textoPlaceholder: {
+      fontSize: fonte.normal,
+      color: cores.textoSecundario,
+    },
+    campoFoto: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderStyle: 'dashed',
+      paddingVertical: espacamento.md,
+    },
+    textoPlaceholderFoto: {
+      color: cores.primaria,
+      fontWeight: '600',
+      fontSize: fonte.normal,
+    },
+    containerPreviewFoto: {
+      alignItems: 'center',
+      backgroundColor: cores.superficie,
+      borderRadius: raio.md,
+      borderColor: cores.borda,
+      borderWidth: 1,
+      padding: espacamento.sm,
+    },
+    previewFoto: {
+      width: '100%',
+      height: 180,
+      borderRadius: raio.sm,
+      backgroundColor: cores.fundo,
+    },
+    acoesFoto: {
+      flexDirection: 'row',
+      gap: espacamento.md,
+    },
+    botaoAlterarFoto: {
+      marginTop: espacamento.sm,
+      paddingVertical: espacamento.xs + 2,
+      paddingHorizontal: espacamento.md,
+    },
+    textoBotaoAlterarFoto: {
+      color: cores.primaria,
+      fontWeight: '600',
+      fontSize: fonte.pequena,
+    },
+    textoRemoverFoto: {
+      color: cores.erro,
+    },
+    seletorIOS: {
+      marginTop: espacamento.sm,
+      backgroundColor: cores.superficie,
+      borderRadius: raio.md,
+      padding: espacamento.sm,
+    },
+    confirmarData: {
+      color: cores.primaria,
+      fontSize: fonte.normal,
+      fontWeight: 'bold',
+      textAlign: 'right',
+      padding: espacamento.sm,
+    },
+    botaoSalvar: {
+      marginTop: espacamento.sm,
+    },
+    botaoDesabilitado: {
+      opacity: 0.6,
+    },
+  });
+}

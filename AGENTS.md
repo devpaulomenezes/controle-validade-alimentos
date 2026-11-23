@@ -40,7 +40,9 @@ Run lint and typecheck before declaring any task done.
 
 ## Estrutura de pastas
 - app/ — telas (TelaInicial e TelaCadastro)
-- components/ — theme.js, ProdutoCard, EmptyState, formatoData, PainelDashboard
+- components/ — ProdutoCard, EmptyState, PainelDashboard
+- theme/ — theme.js
+- utils/ — formatoData
 - services/ — CameraService, NotificacoesService, ServicoValidade, ServicoDashboard
 - data/ — Produto, ProdutoRepository (contrato), JsonProdutoRepository (implementação real)
 - __tests__/ — testes unitários e de integração (Jest + jest-expo; `npx jest`)
@@ -52,7 +54,7 @@ Run lint and typecheck before declaring any task done.
 
 ## Convenções
 - Código, comentários e mensagens em português (pt-BR); JSDoc nos arquivos de contrato.
-- Estilos somente via components/theme.js.
+- Estilos somente via theme/theme.js.
 - Instalar pacotes somente com `npx expo install <package>`.
 - Lint com `npx eslint <caminhos>` (ex.: `npx eslint data`).
 - Git: desenvolvimento exclusivo na branch `dev`; Conventional Commits
