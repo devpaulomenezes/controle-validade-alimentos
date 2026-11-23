@@ -1,3 +1,4 @@
+/* global describe, it, expect, jest */
 import { ApiProdutoRepository } from '../data/ApiProdutoRepository';
 import ProdutoRepository from '../data/ProdutoRepository';
 import Produto from '../data/Produto';

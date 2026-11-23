@@ -1,3 +1,7 @@
+/* global describe, test, expect, beforeEach, jest */
+import * as FileSystem from 'expo-file-system/legacy';
+import AuthService from '../services/AuthService';
+
 jest.mock('expo-file-system/legacy', () => ({
   documentDirectory: 'file:///docs/',
   getInfoAsync: jest.fn(),
@@ -5,9 +9,6 @@ jest.mock('expo-file-system/legacy', () => ({
   writeAsStringAsync: jest.fn(),
   deleteAsync: jest.fn(),
 }));
-
-import * as FileSystem from 'expo-file-system/legacy';
-import AuthService from '../services/AuthService';
 
 const CAMINHO = 'file:///docs/sessao.json';
 const dadosApi = {

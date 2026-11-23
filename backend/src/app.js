@@ -26,7 +26,6 @@ app.use('/produtos', autenticar, rotasProdutos);
 // ---------- Tratamento de erros ----------
 app.use((req, res) => erro(res, 404, 'Rota não encontrada.'));
 
-// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   if (err.type === 'entity.parse.failed') {
     return erro(res, 400, 'JSON inválido.');
